@@ -24,9 +24,6 @@ tests.
 
   - Configure the required variables to your liking in [tests/improved-sanity-tests/vars.yml](tests/improved-sanity-tests/vars.yml).
 
-  - Because these tests are geared towards testing upgrades and rollbacks,
-    the system under test should have a new tree available to upgrade to.
-
 ### Running the Playbook
 
 To run the test, simply invoke as any other Ansible playbook:
