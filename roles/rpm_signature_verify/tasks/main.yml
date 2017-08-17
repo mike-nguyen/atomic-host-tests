@@ -1,0 +1,58 @@
+---
+# vim: set ft=ansible:
+#
+# This role will check all the RPMs of a host for a GPG signature.  Currently,
+# it only supports checking for a single GPG signature.
+#
+# The role has a dependency on `booted_deployment_set_fact`, which allows us
+# to refer to the fact (bdsf_saved_refspec) set by that role.  We use the fact
+# to determine if we want to actually check the GPG signatures on the host
+# under test.
+#
+- name: Fail if bdsf_saved_refspec is not defined
+  fail:
+    msg: "The 'bdsf_saved_refspec' variable is not defined"
+  when: bdsf_saved_refspec is undefined
+
+# We don't support internal RHELAH autobrew, the continuous streams, or
+# Fedora Rawhide
+- name: Set rpm_sig_supported fact
+  set_fact:
+    rsv_rpm_sig_supported: "{{ true|default('false') }}"
+  when:
+    - "'buildmaster' not in bdsf_saved_refspec"
+    - "'continuous' not in bdsf_saved_refspec"
+    - "'rawhide' not in bdsf_saved_refspec"
+
+- block:
+    # Even though this whole block is skipped if `rpm_sig_supported` is not defined
+    # this task will still barf if it can't file a file that matches the conditions
+    # below.  So we use the 'skip' to short circuit this problem.
+    - name: Pull in keys used for signing
+      include_vars: "{{ item }}"
+      with_first_found:
+        - files:
+            - "{{ ansible_distribution|lower }}-{{ ansible_distribution_version }}.yml"
+            - "{{ ansible_distribution|lower }}-{{ ansible_distribution_major_version }}.yml"
+            - "{{ ansible_distribution|lower }}.yml"
+          skip: true
+
+    - name: Fail if GPG key is not defined
+      fail:
+        msg: "There is no GPG key provided"
+      when: rsv_gpg_key is undefined
+
+    - name: Get RPM signatures
+      shell: rpm -qai | awk '/Signature/ {print substr($NF, length($NF)-16) }' | sort | uniq
+      register: rsv_rpm_sig
+
+    - name: Fail if GPG key is not found
+      fail:
+        msg: "RPMs not signed with appropriate GPG key"
+      when: rsv_gpg_key not in rsv_rpm_sig.stdout
+
+    - name: Fail if more than one GPG key found
+      fail:
+        msg: "Multiple GPG keys found"
+      when: rsv_rpm_sig.stdout|length > 17
+  when: rsv_rpm_sig_supported
