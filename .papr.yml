@@ -1,11 +1,11 @@
 cluster:
   hosts:
     - name: testnode
-      distro: fedora/25/atomic
+      distro: fedora/26/atomic
   container:
     image: registry.fedoraproject.org/fedora:25
 
-context: fedora/25/atomic
+context: fedora/26/atomic
 
 packages:
   - ansible
@@ -14,18 +14,6 @@ packages:
 
 tests:
   - ./.test_director
-
----
-inherit: true
-
-cluster:
-  hosts:
-    - name: testnode
-      distro: fedora/26/atomic
-  container:
-    image: registry.fedoraproject.org/fedora:25
-
-context: fedora/26/atomic
 
 ---
 inherit: true
