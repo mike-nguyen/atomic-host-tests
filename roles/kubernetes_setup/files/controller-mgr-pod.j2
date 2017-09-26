@@ -9,7 +9,7 @@
     "containers": [
       {
         "name": "kube-controller-manager",
-        "image": "registry.access.redhat.com/rhel7/kubernetes-controller-mgr",
+        "image": "{{ kube_controller_manager }}",
         "volumeMounts": [
           {
             "name": "etcssl",
