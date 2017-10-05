@@ -301,8 +301,20 @@
       command: ostree commit -b local-branch --tree=ref=local-branch --add-metadata-string version=test
       register: new_commit
 
+    # TODO: revert this conditional once F26 picks up rpm-ostree 2017.9
     - name: rpm-ostree reload
       command: rpm-ostree reload
+      when:
+        - ansible_distribution != 'Fedora'
+        - ansible_distribution_major_version != '26'
+
+    - name: restart rpm-ostreed
+      service:
+        name: rpm-ostreed
+        state: restarted
+      when:
+        - ansible_distribution == 'Fedora'
+        - ansible_distribution_major_version == '26'
 
     # rpm-ostree upgrade
     - include: roles/rpm_ostree_upgrade/tasks/main.yml
@@ -388,8 +400,20 @@
       command: ostree commit -b local-branch --tree=ref=local-branch --add-metadata-string version=test
       register: new_commit
 
+    # TODO: revert this conditional once F26 picks up rpm-ostree 2017.9
     - name: rpm-ostree reload
       command: rpm-ostree reload
+      when:
+        - ansible_distribution != 'Fedora'
+        - ansible_distribution_major_version != '26'
+
+    - name: restart rpm-ostreed
+      service:
+        name: rpm-ostreed
+        state: restarted
+      when:
+        - ansible_distribution == 'Fedora'
+        - ansible_distribution_major_version == '26'
 
     - name: Upgrade
       command: rpm-ostree upgrade --install {{ g_pkg }}
