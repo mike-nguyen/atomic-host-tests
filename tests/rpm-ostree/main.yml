@@ -482,7 +482,8 @@
     - include_role:
         name: rpm_ostree_install_verify
       vars:
-        package: "{{ g_pkg }}"
+        roiv_package_name: "{{ g_pkg }}"
+        roiv_binary_name: "{{ g_pkg }}"
 
     - name: Rebase back to original deployment
       command: rpm-ostree rebase {{ refspec }} {{ head_csum }}
@@ -505,7 +506,8 @@
     - include_role:
         name: rpm_ostree_install_verify
       vars:
-        package: "{{ g_pkg }}"
+        roiv_package_name: "{{ g_pkg }}"
+        roiv_binary_name: "{{ g_pkg }}"
 
     # refresh rpm-ostree status variables
     - include_role:
@@ -526,7 +528,8 @@
     - include_role:
         name: rpm_ostree_uninstall_verify
       vars:
-        package: "{{ g_pkg }}"
+        rouv_package_name: "{{ g_pkg }}"
+        rouv_binary_name: "{{ g_pkg }}"
 
     # verify deploy with uninstallation info
     - include_role:
@@ -554,7 +557,8 @@
     - include_role:
         name: rpm_ostree_uninstall_verify
       vars:
-        package: "{{ g_pkg }}"
+        rouv_package_name: "{{ g_pkg }}"
+        rouv_binary_name: "{{ g_pkg }}"
 
     # verify upgrade info
     - include_role:

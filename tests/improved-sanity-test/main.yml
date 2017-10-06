@@ -35,7 +35,7 @@
     - pre_upgrade
 
   vars_files:
-    - vars.yml
+    - "vars/common.yml"
 
   roles:
     # This playbook requires Ansible 2.2 and an Atomic Host
@@ -183,8 +183,8 @@
 
     # Install package using package layering
     - role: rpm_ostree_install
-      packages: "{{ g_pkg }}"
-      reboot: false
+      roi_packages: "{{ g_pkg }}"
+      roi_reboot: false
       tags:
         - rpm_ostree_install
 
@@ -195,7 +195,8 @@
         - reboot_pre_up_install
 
     - role: rpm_ostree_install_verify
-      package: "{{ g_pkg }}"
+      roiv_package_name: "{{ g_pkg }}"
+      roiv_binary_name: "{{ g_pkg }}"
       tags:
         - rpm_ostree_install_verify
 
@@ -341,7 +342,8 @@
     - post_upgrade
 
   vars_files:
-    - vars.yml
+    - "vars/common.yml"
+    - [ "vars/{{ ansible_distribution|lower }}.yml", "vars/os_defaults.yml" ]
 
   roles:
     # This playbook requires Ansible 2.2 and an Atomic Host
@@ -432,7 +434,8 @@
 
     # Check layered package is still installed
     - role: rpm_ostree_install_verify
-      package: "{{ g_pkg }}"
+      roiv_package_name: "{{ g_pkg }}"
+      roiv_binary_name: "{{ g_pkg }}"
       tags:
         - rpm_ostree_install_verify
 
@@ -479,8 +482,8 @@
         - cloud_image
 
     - role: rpm_ostree_install
-      packages: httpd
-      reboot: false
+      roi_packages: "{{ g_ros_install_pkg }}"
+      roi_reboot: false
       tags:
         - rpm_ostree_install
 
@@ -489,24 +492,27 @@
         - reboot_post_up_install
 
     - role: rpm_ostree_install_verify
-      package: "{{ g_pkg }}"
+      roiv_package_name: "{{ g_pkg }}"
+      roiv_binary_name: "{{ g_pkg }}"
       tags:
         - rpm_ostree_install_verify
 
     - role: rpm_ostree_install_verify
-      package: httpd
+      roiv_package_name: "{{ g_ros_install_pkg }}"
+      roiv_binary_name: "{{ g_ros_install_bin }}"
       tags:
         - rpm_ostree_install_verify
-      check_mode: no
 
     - role: httpd_start
       httpd_port: 8080
+      when: ansible_distribution != 'CentOS'
       tags:
         - httpd_start
 
     - role: url_verify
       url: http://localhost:8080
       destination: /dev/null
+      when: ansible_distribution != 'CentOS'
       tags:
         - url_verify
 
@@ -638,7 +644,8 @@
     - post_rollback
 
   vars_files:
-    - vars.yml
+    - "vars/common.yml"
+    - [ "vars/{{ ansible_distribution|lower }}.yml", "vars/os_defaults.yml" ]
 
   roles:
     # This playbook requires Ansible 2.2 and an Atomic Host
@@ -679,13 +686,15 @@
 
     # Check layered package is still installed
     - role: rpm_ostree_install_verify
-      package: "{{ g_pkg }}"
+      roiv_package_name: "{{ g_pkg }}"
+      roiv_binary_name: "{{ g_pkg }}"
       tags:
         - rpm_ostree_install_verify
 
-    # Check http package is not installed
+    # Check second package is not installed
     - role: rpm_ostree_uninstall_verify
-      package: httpd
+      rouv_package_name: "{{ g_ros_install_pkg }}"
+      rouv_binary_name: "{{ g_ros_install_bin }}"
       tags:
         - rpm_ostree_uninstall_verify
 
@@ -737,8 +746,8 @@
 
     # use 'all' keyword to remove all installed pacakges
     - role: rpm_ostree_uninstall
-      packages: all
-      reboot: true
+      rou_packages: all
+      rou_reboot: true
       tags:
         - rpm_ostree_uninstall
 
