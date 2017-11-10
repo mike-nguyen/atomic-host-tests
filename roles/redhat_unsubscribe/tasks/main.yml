@@ -22,9 +22,16 @@
   failed_when:
     - subman_remove.rc != 0
     - subman_remove.rc != 70
+  until: subman_remove|success
+  retries: 5
+  delay: 60
 
 - name: Unregister from remote service
   command: subscription-manager unregister
+  register: result
+  until: result|success
+  retries: 5
+  delay: 60
 
 - name: Insert 'unconfigured-state' field
   lineinfile:

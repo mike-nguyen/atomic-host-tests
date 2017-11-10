@@ -55,12 +55,16 @@
       USERNAME: "{{ lookup('csvfile', 'username file={} delimiter=,'.format(subscription_file)) }}"
       PASSWORD: "{{ lookup('csvfile', 'password file={} delimiter=,'.format(subscription_file)) }}"
     register: result
-    until: result.rc == 0
-    retries: 3
-    delay: 5
+    until: result|success
+    retries: 5
+    delay: 60
 
   - name: disable all repos
     command: subscription-manager repos --disable=*
+    register: result
+    until: result|success
+    retries: 5
+    delay: 60
 
   - name: enable server, optional, and extras repos
     command: >
@@ -68,6 +72,10 @@
       --enable rhel-7-server-rpms
       --enable rhel-7-server-optional-rpms
       --enable rhel-7-server-extras-rpms
+    register: result
+    until: result|success
+    retries: 5
+    delay: 60
 
   - name: Mask and stop rhsmcertd
     shell: >
