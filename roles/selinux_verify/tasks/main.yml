@@ -1,6 +1,24 @@
 ---
 # vim: set ft=ansible:
 #
+# This role can be used to verify that various SELinux file labels and process
+# labels are correct on a system under test.  The role will check a set of
+# files/processes that are common to all the Atomic Host platforms, as well as
+# files/processes that may be unique to each distribution.
+#
+# Additionally, the role verifies that no files on the host have either the
+# 'unlabeled_t' or 'default_t' label.
+#
+# If there is a known problem in some of the SELinux labels on the host, you
+# can use following tags to exclude parts of the role from running (the tags
+# should be self-describing):
+#  - common_selinux_file_labels
+#  - distro_selinux_file_labels
+#  - common_selinux_proc_labels
+#  - distro_selinux_proc_labels
+#  - default_file_label
+#  - unlabeled_file_label
+#
 - name: Include common vars
   include_vars: common.yml
 
@@ -36,6 +54,8 @@
   command: getfattr -n security.selinux {{ item.key }} --absolute-names --only-values
   register: common_selinux_file_labels
   with_items: "{{ common_files }}"
+  tags:
+    - common_selinux_file_labels
 
   # The verification is slightly hacky.  The state of the previous play is
   # registered in a variable; in this case 'common_selinux_file_labels'.
@@ -56,11 +76,15 @@
       {{ sv_failed_file_labels|default([]) +
       [ item.item.key + ': ' + item.stdout + ' (expected: ' + item.item.value + ')' ] }}
   with_items: "{{ common_selinux_file_labels.results }}"
+  tags:
+    - common_selinux_file_labels
 
 - name: Retrieve the distribution specific SELinux file labels
   command: getfattr -n security.selinux {{ item.key }} --absolute-names --only-values
   register: distro_selinux_file_labels
   with_items: "{{ distro_files }}"
+  tags:
+    - distro_selinux_file_labels
 
 - name: Append failed distro file labels to the list
   when: item.item.value not in item.stdout
@@ -69,6 +93,8 @@
       {{ sv_failed_file_labels|default([]) +
       [ item.item.key + ': ' + item.stdout + ' (expected: ' + item.item.value + ')' ] }}
   with_items: "{{ distro_selinux_file_labels.results }}"
+  tags:
+    - distro_selinux_file_labels
 
   # If the list of failed labels has been appended to, the variable will
   # register as defined and thus we fail out.
@@ -94,6 +120,8 @@
   shell: ps --no-headers -o label -q $(systemctl show -p MainPID {{ item.key|quote }} | sed -e s,MainPID=,,)
   register: common_selinux_proc_labels
   with_items: "{{ common_procs }}"
+  tags:
+    - common_selinux_proc_labels
 
 - name: Append incorrect common SELinux process labels
   when: item.item.value not in item.stdout
@@ -102,11 +130,15 @@
       {{ sv_failed_proc_labels|default([]) +
       [ item.item.key + ': ' + item.stdout + ' (expected: ' + item.item.value + ')' ] }}
   with_items: "{{ common_selinux_proc_labels.results }}"
+  tags:
+    - common_selinux_proc_labels
 
 - name: Retrieve distribution specific SELinux process labels
   shell: ps --no-headers -o label -q $(systemctl show -p MainPID {{ item.key|quote }} | sed -e s,MainPID=,,)
   register: distro_selinux_proc_labels
   with_items: "{{ distro_procs }}"
+  tags:
+    - distro_selinux_proc_labels
 
 - name: Append incorrect distro SELinux process labels
   when: item.item.value not in item.stdout
@@ -115,6 +147,8 @@
       {{ sv_failed_proc_labels|default([]) +
       [ item.item.key + ': ' + item.stdout + ' (expected: ' + item.item.value + ')' ] }}
   with_items: "{{ distro_selinux_proc_labels.results }}"
+  tags:
+    - distro_selinux_proc_labels
 
 - name: Fail if any SELinux proc labels were incorrect
   when: sv_failed_proc_labels is defined
@@ -137,6 +171,8 @@
   set_fact:
     sv_default_files: "{{ sv_default_files|default([]) + [ item.stdout ] }}"
   with_items: "{{ find_default_t.results }}"
+  tags:
+    - default_file_label
 
 - name: Fail if any files have the default_t SELinux label
   when: sv_default_files is defined
@@ -148,17 +184,23 @@
       {%- for i in sv_default_files %}
       {%- print i + '\n' %}
       {%- endfor %}
+  tags:
+    - default_file_label
 
 - name: Look for files/dir with 'unlabeled_t' label
   command: find {{ item }} -context '*:unlabeled_t:*'
   register: find_file_t
   with_items: "{{ mountpoints }}"
+  tags:
+    - unlabeled_file_label
 
 - name: Append files with 'unlabeled_t'
   when: item.stdout|length > 0
   set_fact:
     sv_unlabeled_files: "{{ sv_unlabeled_files|default([]) + [ item.stdout ] }}"
   with_items: "{{ find_file_t.results }}"
+  tags:
+    - unlabeled_file_label
 
 - name: Fail if any files have the unlabeled_t SELinux label
   when: sv_unlabeled_files is defined
@@ -170,3 +212,5 @@
       {%- for i in sv_unlabeled_files %}
       {%- print i + '\n' %}
       {%- endfor %}
+  tags:
+    - unlabeled_file_label
