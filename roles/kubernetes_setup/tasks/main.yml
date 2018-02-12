@@ -1,121 +1,148 @@
 ---
+# vim: set ft=ansible:
 #
-#  This role sets up kubernetes apiserver, controller-mgr, and scheduler pods
+# This role sets up kubernetes apiserver, controller-mgr, and scheduler pods.
+# It requires that the `kubernetes_set_fact` role be run before it can be
+# successfully used.
 #
-- name: Get kubernetes version
-  include_role:
-    name: rpm_version
-  vars:
-    rv_rpms: kubernetes-node
+- name: Fail if kube_system_containers is not defined
+  when: kube_system_containers is not defined
+  fail:
+    msg: |
+      This role requires that the `kubernetes_set_fact` role is run
+      before it can be used.
+- when: kube_system_containers
+  block:
+    - name: Pull k8s and etcd images from the registry
+      command: "atomic pull --storage ostree {{ item }}"
+      register: atomic_pull
+      retries: 6
+      delay: 10
+      until: atomic_pull|success
+      with_items:
+        - "{{ kube_apiserver }}"
+        - "{{ kube_controller_manager }}"
+        - "{{ kube_scheduler }}"
+        - "{{ kube_kubelet }}"
+        - "{{ kube_proxy }}"
+        - "{{ etcd }}"
 
-- name: Define kube 1.5 vars
-  when: g_atomic_host['kubernetes-node'] | version_compare('1.6', '<')
-  set_fact:
-    kube_maj_ver: "1.5"
-    kube_apiserver: "registry.access.redhat.com/rhel7/kubernetes-apiserver"
-    kube_controller_manager: "registry.access.redhat.com/rhel7/kubernetes-controller-mgr"
-    kube_scheduler: "registry.access.redhat.com/rhel7/kubernetes-scheduler"
+    - name: Install etcd + k8s system containers
+      command: "atomic install --system --system-package=no {{ item }}"
+      with_items:
+        - "--name etcd {{ etcd }}"
+        - "--name kube-apiserver {{ kube_apiserver }}"
+        - "--name kube-controller-manager {{ kube_controller_manager }}"
+        - "--name kube-scheduler {{ kube_scheduler }}"
+        - "--name kubelet {{ kube_kubelet }}"
+        - "--name kube-proxy {{ kube_proxy }}"
 
-- name: Define kube 1.6 images
-  when: g_atomic_host['kubernetes-node'] | version_compare('1.6', '>=')
-  set_fact:
-    kube_maj_ver: "1.6"
-    kube_apiserver: "registry.fedoraproject.org/f26/kubernetes-apiserver"
-    kube_controller_manager: "registry.fedoraproject.org/f26/kubernetes-controller-manager"
-    kube_scheduler: "registry.fedoraproject.org/f26/kubernetes-scheduler"
+    # Start etcd a little early to allow it to get setup + ready
+    - name: Start etcd
+      service:
+        name: 'etcd'
+        state: 'started'
+        enabled: true
 
-- name: pull kubernetes api-server, controller-mgr, scheduler
-  command: docker pull {{ item }}
-  register: pull
-  failed_when: item not in pull.stdout
-  with_items:
-    - "{{ kube_apiserver }}"
-    - "{{ kube_controller_manager }}"
-    - "{{ kube_scheduler }}"
+    - name: Edit /etc/kubernetes/apiserver
+      replace:
+        dest: "/etc/kubernetes/apiserver"
+        regexp: "^KUBE_ADMISSION_CONTROL=.*$"
+        replace: 'KUBE_ADMISSION_CONTROL="--admission-control=NamespaceLifecycle,NamespaceExists,LimitRanger,SecurityContextDeny,ResourceQuota'
 
-- name: make db directory
-  file:
-    path: /etc/kubernetes/manifests
-    state: directory
-    mode: 0755
+    # Start apiserver to get it primed
+    - name: Start apiserver
+      service:
+        name: 'kube-apiserver'
+        state: 'started'
+        enabled: true
 
-- name: template out apiserver, controller-manager, and scheduler pods
-  template:
-    src: roles/kubernetes_setup/files/{{ item }}.j2
-    dest: /etc/kubernetes/manifests/{{ item }}.json
-    owner: root
-    group: root
-    mode: 0644
-  with_items:
-    - apiserver-pod
-    - controller-mgr-pod
-    - scheduler-pod
+    - name: Add args to /etc/kubernetes/kubelet
+      lineinfile:
+        dest: /etc/kubernetes/kubelet
+        backup: true
+        backrefs: true
+        regexp: '(^KUBELET_ARGS=\".*)\"\s*$'
+        line: '\1 --register-node=true'
 
-# Thank you based Google gods
-# https://groups.google.com/d/msg/ansible-project/JvHfchsgRaU/Vw_CzBbvadgJ
-#
-# Shoddy explanation of regexp:
-#   - open of capture group 1: matched by (
-#   - <startofline>: matched by ^
-#   - the string "KUBELET_ARGS=": matched literally (double quote is escaped)
-#   - any characters after above string: matched by .*
-#   - close of capture group 1: matched by )
-#   - the closing " char: matched by \"
-#   - any spaces/tabs: matched by \s*
-#   - <endofline>: matched by $
-#
-# The capture group 1 is referred to as \1 in the 'line:' statement and
-# will be used as the begining of the line to be inserted into the file.
-# Thus, any exiting values to KUBELET_ARGS are preserved and the two
-# new options (--register-node and --pod-manifest-path) are cleanly
-# appended.
-- name: add kubelet args
-  lineinfile:
-    dest: /etc/kubernetes/kubelet
-    backup: true
-    backrefs: true
-    regexp: '(^KUBELET_ARGS=\".*)\"\s*$'
-    line: '\1 --register-node=true --pod-manifest-path=/etc/kubernetes/manifests/"'
+    # Start the rest of the services
+    - name: Start kubernetes services
+      service:
+        name: "{{ item }}"
+        state: "started"
+        enabled: true
+      with_items:
+        - "kubelet"
+        - "kube-proxy"
+        - "kube-controller-manager"
+        - "kube-scheduler"
 
-- name: stop docker, etcd, kube-proxy, kubelet
-  service:
-    name: "{{ item }}"
-    state: stopped
-  with_items:
-    - docker
-    - etcd
-    - kube-proxy
-    - kubelet
+- when: not kube_system_containers
+  block:
+    - name: pull kubernetes api-server, controller-mgr, scheduler
+      command: docker pull {{ item }}
+      register: docker_pull
+      retries: 6
+      delay: 10
+      until: docker_pull|success
+      with_items:
+        - "{{ kube_apiserver }}"
+        - "{{ kube_controller_manager }}"
+        - "{{ kube_scheduler }}"
 
-- name: start docker, etcd, kube-proxy, kubelet
-  service:
-    name: "{{ item }}"
-    state: started
-    enabled: yes
-  with_items:
-    - docker
-    - etcd
-    - kube-proxy
-    - kubelet
+    - name: make db directory
+      file:
+        path: /etc/kubernetes/manifests
+        state: directory
+        mode: 0755
 
-- name: stop docker, kube-proxy.service, kubelet.service
-  service:
-    name: "{{ item }}"
-    state: stopped
-  with_items:
-    - docker
-    - kube-proxy.service
-    - kubelet.service
+    - name: template out apiserver, controller-manager, and scheduler pods
+      template:
+        src: roles/kubernetes_setup/files/{{ item }}.j2
+        dest: /etc/kubernetes/manifests/{{ item }}.json
+        owner: root
+        group: root
+        mode: 0644
+      with_items:
+        - apiserver-pod
+        - controller-mgr-pod
+        - scheduler-pod
 
-- name: start docker, kube-proxy.service, kubelet.service
-  service:
-    name: "{{ item }}"
-    state: started
-    enabled: yes
-  with_items:
-    - docker
-    - kube-proxy.service
-    - kubelet.service
+    # Thank you based Google gods
+    # https://groups.google.com/d/msg/ansible-project/JvHfchsgRaU/Vw_CzBbvadgJ
+    #
+    # Shoddy explanation of regexp:
+    #   - open of capture group 1: matched by (
+    #   - <startofline>: matched by ^
+    #   - the string "KUBELET_ARGS=": matched literally (double quote is escaped)
+    #   - any characters after above string: matched by .*
+    #   - close of capture group 1: matched by )
+    #   - the closing " char: matched by \"
+    #   - any spaces/tabs: matched by \s*
+    #   - <endofline>: matched by $
+    #
+    # The capture group 1 is referred to as \1 in the 'line:' statement and
+    # will be used as the begining of the line to be inserted into the file.
+    # Thus, any exiting values to KUBELET_ARGS are preserved and the two
+    # new options (--register-node and --pod-manifest-path) are cleanly
+    # appended.
+    - name: add kubelet args
+      lineinfile:
+        dest: /etc/kubernetes/kubelet
+        backup: true
+        backrefs: true
+        regexp: '(^KUBELET_ARGS=\".*)\"\s*$'
+        line: '\1 --register-node=true --pod-manifest-path=/etc/kubernetes/manifests/"'
+
+    - name: start etcd, kube-proxy, kubelet
+      service:
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      with_items:
+        - etcd
+        - kubelet
+        - kube-proxy
 
 - name: test etcd
   command: curl http://localhost:2379/version

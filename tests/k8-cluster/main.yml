@@ -45,6 +45,13 @@
       tags:
         - docker_build_tag_push
 
+    - when: ansible_distribution == "CentOSDev"
+      role: resize_lv
+      rl_lvname: 'root'
+      rl_lvsize: '6'
+      tags:
+        - resize_lv
+
     - role: kubernetes_setup
       tags:
         - kubernetes_setup
@@ -54,7 +61,7 @@
         - k8_cluster_services_rc_setup
 
   post_tasks:
-    - name: check if everything works!
+    - name: Check if everything works!
       shell: curl http://localhost:80/cgi-bin/action | grep "RedHat rocks"
 
 
