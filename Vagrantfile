@@ -5,52 +5,49 @@
 # https://github.com/aidanns/vagrant-reload
 
 # This Vagrantfile defines multiple boxes that are tooled to test/run the
-# sanity playbook in 'tests/improved-sanity-test/main.yml'.
-#
-# Each box boots into the OS, deploys HEAD^ of a particular tree, then runs
-# the playbook (which currently includes upgrading to HEAD of the same tree).
+# sanity playbook in 'tests/improved-sanity-test/main.yml'. As part of the
+# provisioning step, the box will be updated to the latest commit available
+# on the stream it is tracking.  Unfortunately, the box will always reboot
+# regardless if it has been updated or not.
 #
 # The playbook is configurable using the $playbook_file variable right before
 # the 'Vagrant.configure()' stanza.
 
-# Define scripts to deploy HEAD^ of various trees
-# - HEAD^ of CAHC
-# - HEAD^ of base CentOS AH
-# - HEAD^ of Fedora 24 AH
-# - HEAD^ of Fedora 25 AH
+# These scripts are used to bring the box up to date with the latest commit
+# available on the stream.
 #
 $cahc = <<CAHC
 #!/bin/bash
 set -xeuo pipefail
-sudo rpm-ostree deploy $(ostree rev-parse centos-atomic-host/7/x86_64/devel/continuous^)
+local=$(ostree rev-parse centos-atomic-host/7/x86_64/devel/continuous)
+sudo ostree pull --commit-metadata-only --depth=1 centos-atomic-continuous:centos-atomic-host/7/x86_64/devel/continuous
+remote=$(ostree rev-parse centos-atomic-host/7/x86_64/devel/continuous)
+if [ "$local" != "$remote" ]; then
+    sudo rpm-ostree deploy $remote
+fi
 CAHC
 
 $centos = <<CENTOS
 #!/bin/bash
 set -xeuo pipefail
-current=$(ostree rev-parse centos-atomic-host/7/x86_64/standard)
-sed -i 's|true|false|' /etc/ostree/remotes.d/centos-atomic-host.conf
+local=$(ostree rev-parse centos-atomic-host/7/x86_64/standard)
 sudo ostree pull --commit-metadata-only --depth=1 centos-atomic-host:centos-atomic-host/7/x86_64/standard
-sed -i 's|false|true|' /etc/ostree/remotes.d/centos-atomic-host.conf
-minusone=$(ostree rev-parse centos-atomic-host/7/x86_64/standard^)
-if [ "$current" != "$minusone" ] ; then
-    sudo rpm-ostree deploy $minusone
+remote=$(ostree rev-parse centos-atomic-host/7/x86_64/standard)
+if [ "$local" != "$remote" ]; then
+    sudo rpm-ostree deploy $remote
 fi
 CENTOS
 
-$fedora24 = <<FEDORA24
+$fedora27 = <<FEDORA27
 #!/bin/bash
 set -xeuo pipefail
-sudo ostree pull --commit-metadata-only --depth=1 fedora-atomic:fedora-atomic/24/x86_64/docker-host
-sudo rpm-ostree deploy $(ostree rev-parse fedora-atomic/24/x86_64/docker-host^)
-FEDORA24
-
-$fedora25 = <<FEDORA25
-#!/bin/bash
-set -xeuo pipefail
-sudo ostree pull --commit-metadata-only --depth=1 fedora-atomic:fedora-atomic/25/x86_64/docker-host
-sudo rpm-ostree deploy $(ostree rev-parse fedora-atomic/25/x86_64/docker-host^)
-FEDORA25
+local=$(ostree rev-parse fedora/27/x86_64/atomic-host)
+sudo ostree pull --commit-metadata-only --depth=1 fedora-atomic:fedora/27/x86_64/atomic-host
+remote=$(ostree rev-parse fedora/27/x86_64/atomic-host)
+if [ "$local" != "$remote" ]; then
+    sudo rpm-ostree deploy $remote
+fi
+FEDORA27
 
 # Define the Ansible playbook you want to run here
 # Alternately, you can set the 'PLAYBOOK_FILE' environment variable to
@@ -83,34 +80,15 @@ Vagrant.configure(2) do |config|
         end
     end
 
-    config.vm.define "fedora24", autostart: false do |fedora24|
-        fedora24.vm.box = "fedora/24-atomic-host"
-        fedora24.vm.hostname = "fedora24ah-dev"
-        fedora24.vm.provision "shell", inline: $fedora24
-        fedora24.vm.provision :reload
-        # Change folder sync
-        # https://pagure.io/pungi-fedora/issue/26
-        fedora24.vm.synced_folder "./", "/vagrant", disabled: 'true'
-        fedora24.vm.synced_folder "./", "/var/vagrant"
-        # Because Vagrant enforces outside-in ordering with the provisioner
-        # we have to specify the same playbook in multiple places
-        fedora24.vm.provision "ansible" do |ansible|
-            ansible.playbook = $playbook_file
-        end
-    end
 
-    config.vm.define "fedora25", autostart: false do |fedora25|
-        fedora25.vm.box = "fedora/25-atomic-host"
-        fedora25.vm.hostname = "fedora25ah-dev"
-        fedora25.vm.provision "shell", inline: $fedora25
-        fedora25.vm.provision :reload
-        # Change folder sync
-        # https://pagure.io/pungi-fedora/issue/26
-        fedora25.vm.synced_folder "./", "/vagrant", disabled: 'true'
-        fedora25.vm.synced_folder "./", "/var/vagrant"
+    config.vm.define "fedora27", autostart: false do |fedora27|
+        fedora27.vm.box = "fedora/27-atomic-host"
+        fedora27.vm.hostname = "fedora27ah-dev"
+        fedora27.vm.provision "shell", inline: $fedora27
+        fedora27.vm.provision :reload
         # Because Vagrant enforces outside-in ordering with the provisioner
         # we have to specify the same playbook in multiple places
-        fedora25.vm.provision "ansible" do |ansible|
+        fedora27.vm.provision "ansible" do |ansible|
             ansible.playbook = $playbook_file
         end
     end
