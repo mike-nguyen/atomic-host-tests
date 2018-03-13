@@ -38,6 +38,18 @@
         - "--name kubelet {{ kube_kubelet }}"
         - "--name kube-proxy {{ kube_proxy }}"
 
+    # Work around https://bugzilla.redhat.com/show_bug.cgi?id=1544175
+    - name: Add the necessary line for the kubelet to start
+      lineinfile:
+        dest: /etc/tmpfiles.d/kubelet.conf
+        regexp: "^d   /var/lib/kubelet.*"
+        line: "d   /var/lib/kubelet - - - - -"
+      register: kubelet
+
+    - when: kubelet|changed
+      name: Re-create tmpfiles
+      command: systemd-tmpfiles --create /etc/tmpfiles.d/kubelet.conf
+
     # Start etcd a little early to allow it to get setup + ready
     - name: Start etcd
       service:
