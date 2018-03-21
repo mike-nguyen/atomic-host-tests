@@ -366,6 +366,52 @@
       tags:
         - docker_rm_container_again
 
+    # Configure container_manage_cgroup boolean
+    # See - https://bugzilla.redhat.com/show_bug.cgi?id=1510139
+    #     - https://bugzilla.redhat.com/show_bug.cgi?id=1554881
+    - when: ansible_distribution == "RedHat" or
+            ansible_distribution == "Fedora"
+      role: selinux_boolean
+      g_seboolean: "container_manage_cgroup"
+      tags:
+        - container_manage_cgroup_bool
+        - non_priv_systemd_httpd_container
+
+    # TEST
+    # Build non-priviledged systemd httpd container
+    - role: docker_build
+      db_src: "roles/docker_build/files/{{ g_osname }}/systemd_httpd/"
+      db_image_name: "{{ g_osname }}_systemd_httpd"
+      tags:
+        - docker_build_systemd
+        - non_priv_systemd_httpd_container
+
+    # TEST
+    # Run non-privileged systemd httpd container
+    - role: docker_run
+      dr_image_name: "{{ g_osname }}_systemd_httpd"
+      dr_run_options: "-d -p 80:80"
+      tags:
+        - docker_run_systemd
+        - non_priv_systemd_httpd_container
+
+    # TEST
+    # Verify that port 80 is open and the URL is accessible
+    - role: check_open_port
+      cop_port: "80"
+      cop_url: "http://localhost:80/"
+      tags:
+        - check_open_port_systemd
+        - non_priv_systemd_httpd_container
+
+    # TEST
+    # Remove the non-privileged systemd httpd container
+    - role: docker_rm_container
+      drc_container_name: "{{ g_osname }}_systemd_httpd"
+      tags:
+        - docker_rm_container_systemd
+        - non_priv_systemd_httpd_container
+
     # TEST
     # Install, run and uninstall cockpit using atomic command
     - role: atomic_installation_verify
@@ -708,6 +754,30 @@
       tags:
         - docker_rmi
 
+    # TEST
+    # Verify we can start the non-privileged systemd httpd container
+    - role: docker_run
+      dr_image_name: "{{ g_osname }}_systemd_httpd"
+      dr_run_options: "-d -p 80:80"
+      tags:
+        - docker_run_systemd
+        - non_priv_systemd_httpd_container
+
+    # Verify that port 80 is open and URL is accessible
+    - role: check_open_port
+      cop_port: "80"
+      cop_url: "http://localhost:80/"
+      tags:
+        - check_open_port_systemd
+        - non_priv_systemd_httpd_container
+
+    # Remove the systemd httpd container
+    - role: docker_rm_container
+      drc_container_name: "{{ g_osname }}_systemd_httpd"
+      tags:
+        - docker_rm_container_systemd
+        - non_priv_systemd_httpd_container
+
     # Remove all things docker
     - role: docker_remove_all
       tags:
@@ -748,7 +818,7 @@
       tags:
         - reboot_post_upgrade
 
-# --
+# ---
 
 - name: Improved Sanity Test - Post-Rollback
   hosts: all
