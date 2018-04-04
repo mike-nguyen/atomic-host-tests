@@ -1,0 +1,19 @@
+---
+# vim: set ft=ansible:
+#
+# rpm-ostree override reset
+#   resets package to base that have been removed or replaced
+#
+# params:
+#   rores_packages [string]: package or packages delimited by space
+#     to reset
+#
+
+- name: Fail if rores_packages is not specified
+  when: rores_packages is undefined
+  fail:
+    msg: 'rores_packages is not defined'
+
+- name: Reset {{ rores_packages }}
+  command: rpm-ostree override reset {{ rores_packages }}
+  register: rores

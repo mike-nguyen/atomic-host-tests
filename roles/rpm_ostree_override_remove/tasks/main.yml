@@ -1,0 +1,18 @@
+---
+# vim: set ft=ansible:
+#
+# rpm-ostree override remove
+#
+# params:
+#   rorem_packages [string]: base package or packages delimited by space
+#     to remove
+#
+
+- name: Fail if rorem_packages is not specified
+  when: rorem_packages is undefined
+  fail:
+    msg: 'rorem_packages is not defined'
+
+- name: override remove {{ rorem_packages }}
+  command: rpm-ostree override remove {{ rorem_packages }}
+  register: rorem

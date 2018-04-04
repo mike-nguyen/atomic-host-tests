@@ -31,6 +31,7 @@
   set_fact:
     roiv_binary_name: "{{ roiv_binary_name if roiv_binary_name is defined else roiv_package_name }}"
     roiv_status_check: "{{ roiv_status_check | default(true) }}"
+    roiv_binary_check: "{{ roiv_binary_check | default(true) }}"
 
 - include_role:
     name: rpm_ostree_status
@@ -45,6 +46,7 @@
       Result: {{ ros_booted['packages'] }}
 
 - name: Check for {{ roiv_binary_name }} binary
+  when: roiv_binary_check
   command: command -v {{ roiv_binary_name }}
 
 - name: Check {{ roiv_package_name }} in rpmdb
