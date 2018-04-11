@@ -1,0 +1,37 @@
+---
+# vim: set ft=ansible:
+#
+#
+- name: test-executor
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars.yml
+
+  vars:
+    results: {}
+
+  tasks:
+    - include_role:
+        name: test_executor
+      vars:
+        te_test:  "{{ item }}"
+      with_items:
+        - 'test1.yml'
+        - 'test2.yml'
+        - 'test3.yml'
+        - 'error.yml'
+        - 'test4.yml'
+        - 'test5.yml'
+
+    - when: "'fail' in results.values()"
+      fail:
+        msg: |
+          one or more tests have failed
+          {{ results | to_nice_yaml(indent=2) }}
+
+    - debug:
+        msg: |
+          all test have passed
+          {{ results | to_nice_yaml(indent=2) }}
