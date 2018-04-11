@@ -1,0 +1,38 @@
+---
+# vim: set ft=ansible:
+#
+#
+- name: test-executor
+  hosts: all
+  become: true
+
+  vars_files:
+    - vars.yml
+
+  vars:
+    results: {}
+
+  tasks:
+    - include_role:
+        name: test_executor
+      vars:
+        te_test:  "{{ item }}"
+      with_items:
+        - 'cleanup.yml'
+        - 'compose.yml'
+        - 'deploy_commit.yml'
+        - 'deploy_version.yml'
+        - 'initramfs.yml'
+        - 'livefs.yml'
+        - 'upgrade_rebase_install_uninstall.yml'
+        - 'upgrade_rebase.yml'
+    - when: "'fail' in results.values()"
+      fail:
+        msg: |
+          one or more tests have failed
+          {{ results | to_nice_yaml(indent=2) }}
+
+    - debug:
+        msg: |
+          all test have passed
+          {{ results | to_nice_yaml(indent=2) }}

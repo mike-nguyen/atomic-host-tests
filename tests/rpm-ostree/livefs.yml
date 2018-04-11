@@ -1,0 +1,141 @@
+    - include_role:
+        name: rpm_ostree_cleanup_all
+
+    - include_role:
+        name: rpm_ostree_install
+      vars:
+        roi_packages: "{{ pkg_name }}"
+        roi_reboot: false
+
+    - include_role:
+        name: rpm_ostree_livefs
+
+    - include_role:
+        name: rpm_ostree_install_verify
+      vars:
+        roiv_package_name: "{{ pkg_name }}"
+        roiv_status_check: false
+
+    # rol_base_commit and rol_livefs_commit come from the rpm_ostree_livefs role
+    # deployment information
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        num_deployments: 3
+        deployment: 1
+        expected:
+          booted: true
+          checksum: "{{ rol_base_commit }}"
+          live-replaced: "{{ rol_livefs_commit }}"
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 0
+        expected:
+          booted: false
+          checksum: "{{ rol_livefs_commit }}"
+          packages:
+            - "{{ pkg_name }}"
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 2
+        expected:
+          booted: false
+          checksum: "{{ rol_base_commit }}"
+          packages: []
+
+    # Reboot and check that the deployment is now a typical package layered
+    # deployment
+    - include_role:
+        name: reboot
+
+    - include_role:
+        name: rpm_ostree_install_verify
+      vars:
+        roiv_package_name: "{{ pkg_name }}"
+        roiv_status_check: false
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 0
+        expected:
+          booted: true
+          base-checksum: "{{ rol_base_commit }}"
+          checksum: "{{ rol_livefs_commit }}"
+          packages:
+            - "{{ pkg_name }}"
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 1
+        expected:
+          booted: false
+          checksum: "{{ rol_base_commit }}"
+          live-replaced: "{{ rol_livefs_commit }}"
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 2
+        expected:
+          booted: false
+          checksum: "{{ rol_base_commit }}"
+          packages: []
+
+    # Rollback twice to get to the original deployment
+    - include_role:
+        name: rpm_ostree_rollback
+
+    - include_role:
+        name: rpm_ostree_rollback
+
+    # Reboot and verify that the system is back to the original deployment
+    # without livefs or layered packages
+    - include_role:
+        name: reboot
+
+    - include_role:
+        name: rpm_ostree_uninstall_verify
+      vars:
+        rouv_package_name: "{{ pkg_name }}"
+        rouv_status_check: false
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 0
+        expected:
+          booted: true
+          checksum: "{{ rol_base_commit }}"
+          packages: []
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 1
+        expected:
+          booted: false
+          checksum: "{{ rol_base_commit }}"
+          live-replaced: "{{ rol_livefs_commit }}"
+
+    - include_role:
+        name: rpm_ostree_status_verify
+      vars:
+        deployment: 2
+        expected:
+          booted: false
+          base-checksum: "{{ rol_base_commit }}"
+          checksum: "{{ rol_livefs_commit }}"
+          packages:
+            - "{{ pkg_name }}"
+
+    - include_role:
+        name: rpm_ostree_cleanup_all
+
+
+
