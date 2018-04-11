@@ -1,0 +1,12 @@
+---
+# vim: set ft=ansible:
+#
+# stops running container with atomic cli
+#
+- block:
+    - include_tasks: '{{ te_test }}'
+    - set_fact:
+        results: "{{ results | combine( { te_test: 'pass' } ) }}"
+  rescue:
+    - set_fact:
+        results: "{{ results | combine( { te_test: 'fail' } ) }}"
