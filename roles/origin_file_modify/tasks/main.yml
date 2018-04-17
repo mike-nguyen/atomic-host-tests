@@ -8,9 +8,9 @@
 #  refspec (string) - refspec to add to booted origin file
 #
 - name: Fail if refspec is undefined
-  when: refspec is undefined
+  when: ofm_refspec is undefined
   fail:
-    msg: "refspec is undefined"
+    msg: "ofm_ refspec is undefined"
 
 - name: Get current booted dir
   command: ostree admin --print-current-dir
@@ -20,4 +20,4 @@
   replace:
     dest: "{{ current_dir.stdout }}.origin"
     regexp: '^(.*refspec=).*$'
-    replace: '\1{{ refspec }}'
+    replace: '\1{{ ofm_refspec }}'

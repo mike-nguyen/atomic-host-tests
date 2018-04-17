@@ -1,0 +1,498 @@
+---
+# This playbook requires Ansible 2.2 and an Atomic Host
+- import_role:
+    name: ansible_version_check
+  vars:
+    avc_major: "2"
+    avc_minor: "2"
+  tags:
+    - ansible_version_check
+
+# Ensure the host(s) are indeed Atomic Host(s)
+- import_role:
+    name: atomic_host_check
+  tags:
+    - atomic_host_check
+
+# Before we do anything substantial, let's check the journal to see if
+# anything blew up on boot
+- import_role:
+    name: journal_fatal_msgs
+  tags:
+    - journal_fatal_msgs_first_boot
+    - journal_fatal_msgs
+
+# Check RPM signatures
+- import_role:
+    name: rpm_signature_verify
+  tags:
+    - rpm_signature_verify
+
+# Subscribe if the system is RHEL
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_subscription
+  tags:
+    - redhat_subscription
+
+# The 'archive' option will drop a YAML file into the playbook directory
+# with the value of the original checksum, refspec, and remote
+- import_role:
+    name: booted_deployment_set_fact
+  vars:
+    archive: true
+  tags:
+    - booted_deployment_set_fact
+
+# Setup local branch and upgrade right away so packages are layered on
+# top of the local branch.  If the local branch is created before the
+# upgrade later in the test, it will only contain the origin content
+# of the ostree.
+- import_role:
+    name: local_branch_setup
+  vars:
+    branch_name: local-branch
+  tags:
+    - local_branch_setup
+
+# Commit to the local branch
+- import_role:
+    name: local_branch_commit
+  vars:
+    lbc_branch_name: 'local-branch'
+    lbc_refspec: 'local-branch'
+    lbc_version: 'test1'
+  tags:
+    - local_branch_commit
+
+# Modify the origin file so we can use rpm-ostree directly
+- import_role:
+    name: origin_file_modify
+  vars:
+    ofm_refspec: local-branch
+  tags:
+    - origin_file_modify
+
+# Do the actual upgrade
+- import_role:
+    name: rpm_ostree_upgrade
+  tags:
+    - rpm_ostree_upgrade_setup
+
+# Reboot the host and don't continue until expected services have started
+- import_role:
+    name: reboot
+  vars:
+    wait_for_services:
+      - docker
+  tags:
+    - reboot_setup
+
+# Set some facts that are used in multiple roles
+- import_role:
+    name: osname_set_fact
+  tags:
+    - osname_set_fact
+
+# TEST
+# Verify that rpm-ostree can be run as non-root or sudo
+- import_role:
+    name: command_privilege_verify
+  vars:
+    cmd: rpm-ostree status
+    user: bin
+    expect_failure: false
+  tags:
+    - command_privilege_verify
+
+# TEST
+# Verify that the output from 'atomic host status'
+# matches 'rpm-ostree status'
+- import_role:
+    name: atomic_host_status_verify
+  tags:
+    - atomic_host_status_verify
+
+# TEST
+# Verify SELinux labels are correct
+- import_role:
+    name: selinux_verify
+  tags:
+    - selinux_verify
+
+# TEST
+# Verify that SELinux file contexts can be modified
+- import_role:
+    name: semanage_fcontext_mod
+  vars:
+    test_dir_match: "{{ g_semanage_test_dir_match }}"
+    test_context: "{{ g_semanage_test_context }}"
+  tags:
+    - semanage_fcontext_mod
+
+# Sets the selinux context of test_dir
+- import_role:
+    name: semanage_fcontext_verify
+  vars:
+    test_dir: "{{ g_semanage_test_dir }}"
+    test_context: "{{ g_semanage_test_context }}"
+  tags:
+    - semanage_fcontext_verify
+
+# Sets boolean defined in vars
+- import_role:
+    name: selinux_boolean
+  tags:
+    - selinux_boolean
+
+# TEST
+# Verify that 'firewalld' is correctly installed/configured
+- import_role:
+    name: firewalld_service_verify
+  tags:
+    - firewalld_service_verify
+
+# TEST
+# Verify that the Docker storage defaults are correct
+- import_role:
+    name: docker_storage_verify
+  tags:
+    - docker_storage_verify
+
+# TEST
+# Verify that 'docker pull' is successful. (Note: this is a different
+# operation than 'atomic pull')
+- import_role:
+    name: docker_pull_run_remove
+  tags:
+    - docker_pull_run_remove
+
+# TEST
+# Validate 'atomic pull', 'atomic scan' works correctly.
+# Remove images after test of each command.
+# Do this ahead of 'ostree admin unlock' because of overlay + SELinux
+# incompatibility on RHEL. (This should be fixed in 7.4)
+- import_role:
+    name: atomic_pull_verify
+  tags:
+    - atomic_pull_verify
+
+# Clean up docker images
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+# TEST
+# Validate atomic scan command
+- import_role:
+    name: atomic_scan_verify
+  tags:
+    - atomic_scan_verify
+
+# Clean up docker images
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+# Install package using package layering
+- import_role:
+    name: rpm_ostree_install
+  vars:
+    roi_packages: "{{ g_pkg }}"
+    roi_reboot: false
+  tags:
+    - rpm_ostree_install
+
+# Reboot the host and don't continue until expected services have started
+- import_role:
+    name: reboot
+  vars:
+    wait_for_services:
+      - docker
+  tags:
+    - reboot_pre_up_install
+
+# TEST
+# Verify that the package layering worked
+- import_role:
+    name: rpm_ostree_install_verify
+  vars:
+    roiv_package_name: "{{ g_pkg }}"
+    roiv_binary_name: "{{ g_pkg }}"
+  tags:
+    - rpm_ostree_install_verify
+
+# TEST
+# Verify admin unlock by installing an RPM
+- import_role:
+    name: ostree_admin_unlock_hotfix
+  tags:
+    - ostree_admin_unlock_hotfix
+
+# TEST
+# Verify overlayfs is present
+- import_role:
+    name: overlayfs_verify_present
+  tags:
+    - overlayfs_verify_present
+
+# Install an rpm using the rpm command
+- import_role:
+    name: rpm_install
+  vars:
+    rpm_path: "{{ g_rpm_path }}"
+  tags:
+    - rpm_install
+
+# TEST
+# Verify the rpm installed successfully when unlocked
+- import_role:
+    name: package_verify_present
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+    check_binary: false
+  tags:
+    - package_verify_present
+
+# TEST
+# Verify that /tmp has the proper permissions
+- import_role:
+    name: tmp_check_perms
+  tags:
+    - tmp_check_perms
+
+# TEST
+# Verify that the RPM database is functional
+- import_role:
+    name: rpmdb_verify
+  tags:
+    - rpmdb_verify
+
+# Add users, make changes to /etc, and add things to /var before the
+# the system is upgraded
+- import_role:
+    name: user_add
+  vars:
+    ua_uid: "{{ g_uid1 }}"
+  tags:
+    - user_add
+
+# TEST
+# Verify the user created is present
+- import_role:
+    name: user_verify_present
+  vars:
+    uvp_uid: "{{ g_uid1 }}"
+  tags:
+    - user_verify_present
+
+# Modify etc
+- import_role:
+    name: etc_modify
+  tags:
+    - etc_modify
+
+# TEST
+# Verify that the changes to etc persisted
+- import_role:
+    name: etc_verify_changes
+  tags:
+    - etc_verify_changes
+
+# Add files to var
+- import_role:
+    name: var_add_files
+  vars:
+    vaf_filename: "{{ g_file1 }}"
+    vaf_dirname: "{{ g_dir1 }}"
+  tags:
+    - var_add_files
+
+# TEST
+# Verify the files added to var persisted
+- import_role:
+    name: var_files_present
+  vars:
+    vfp_filename: "{{ g_file1 }}"
+    vfp_dirname: "{{ g_dir1 }}"
+  tags:
+    - var_files_present
+
+# Pull down docker base images, build a layered image, run it, then
+# remove the container.  But we keep the image around to run later.
+# Run 'atomic run/stop' tests prior to running 'docker run' test so
+# the built images can be run later.
+- import_role:
+    name: docker_pull_base_image
+  tags:
+    - docker_pull_base_image
+
+# Build a local httpd image
+- import_role:
+    name: docker_build
+  vars:
+    db_src: "roles/docker_build/files/{{ g_osname }}/httpd/"
+    db_image_name: "{{ g_httpd_name }}"
+  tags:
+    - docker_build
+
+# TEST
+# Verify we can run a container via atomic
+- import_role:
+    name: atomic_run_verify
+  vars:
+    container: "{{ g_httpd_name }}"
+  tags:
+    - atomic_run_verify
+
+# TEST
+# Verify we can stop a container via atomic
+- import_role:
+    name: atomic_stop_verify
+  vars:
+    container: "{{ g_httpd_name }}"
+  tags:
+    - atomic_stop_verify
+
+# TEST
+# Verify we can remove the httpd container and it is no longer running
+- import_role:
+    name: docker_rm_container
+  vars:
+    drc_container_name: "{{ g_httpd_name }}"
+  tags:
+    - docker_rm_container
+
+# TEST
+# Verify we can run the container again
+- import_role:
+    name: docker_run
+  vars:
+    dr_image_name: "{{ g_httpd_name }}"
+    dr_run_options: "-d -p 80:80"
+  tags:
+    - docker_run
+
+# TEST
+# Verify port 80 is open and we can retrieve the URL
+- import_role:
+    name: check_open_port
+  vars:
+    cop_port: "80"
+    cop_url: "http://localhost:80"
+  tag:
+    - check_open_port
+
+# TEST
+# Verify we can remove the httpd container and it is no longer running
+- import_role:
+    name: docker_rm_container
+  vars:
+    drc_container_name: "{{ g_httpd_name }}"
+  tags:
+    - docker_rm_container_again
+
+# Configure container_manage_cgroup boolean
+# See - https://bugzilla.redhat.com/show_bug.cgi?id=1510139
+#     - https://bugzilla.redhat.com/show_bug.cgi?id=1554881
+- when: ansible_distribution == "RedHat" or
+        ansible_distribution == "Fedora"
+  import_role:
+    name: selinux_boolean
+  vars:
+    g_seboolean: "container_manage_cgroup"
+  tags:
+    - container_manage_cgroup_bool
+    - non_priv_systemd_httpd_container
+
+# TEST
+# Build non-priviledged systemd httpd container
+- import_role:
+    name: docker_build
+  vars:
+    db_src: "roles/docker_build/files/{{ g_osname }}/systemd_httpd/"
+    db_image_name: "{{ g_osname }}_systemd_httpd"
+  tags:
+    - docker_build_systemd
+    - non_priv_systemd_httpd_container
+
+# TEST
+# Run non-privileged systemd httpd container
+- import_role:
+    name: docker_run
+  vars:
+    dr_image_name: "{{ g_osname }}_systemd_httpd"
+    dr_run_options: "-d -p 80:80"
+  tags:
+    - docker_run_systemd
+    - non_priv_systemd_httpd_container
+
+# TEST
+# Verify that port 80 is open and the URL is accessible
+- import_role:
+    name: check_open_port
+  vars:
+    cop_port: "80"
+    cop_url: "http://localhost:80/"
+  tags:
+    - check_open_port_systemd
+    - non_priv_systemd_httpd_container
+
+# TEST
+# Remove the non-privileged systemd httpd container
+- import_role:
+    name: docker_rm_container
+  vars:
+    drc_container_name: "{{ g_osname }}_systemd_httpd"
+  tags:
+    - docker_rm_container_systemd
+    - non_priv_systemd_httpd_container
+
+# TEST
+# Install, run and uninstall cockpit using atomic command
+- import_role:
+    name: atomic_installation_verify
+  tags:
+    - atomic_installation_verify
+
+# new commit
+- import_role:
+    name: local_branch_commit
+  vars:
+    lbc_branch_name: local-branch
+    lbc_refspec: local-branch
+    lbc_version: test2
+  tags:
+    - local_branch_commit
+  check_mode: false
+
+# TEST
+# Verify installation of etcd system container works
+- import_role:
+    name: etcd_sys_container_install
+  tags:
+    - etcd_sys_container_install
+
+# Upgrade host
+- import_role:
+    name: rpm_ostree_upgrade
+  tags:
+    - rpm_ostree_upgrade
+  check_mode: false
+
+# Before we reboot, check the journal for anything that blew up
+- import_role:
+    name: journal_fatal_msgs
+  tags:
+    - journal_fatal_msgs_reboot
+    - journal_fatal_msgs
+
+- import_role:
+    name: reboot
+  vars:
+    wait_for_services:
+    - docker
+  tags:
+    - reboot_pre_upgrade

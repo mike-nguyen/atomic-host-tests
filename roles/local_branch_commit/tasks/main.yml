@@ -9,11 +9,11 @@
 #   branch_name (string) - local checkout branch name
 #
 - name: Fail if version, refspec, or branch_name is undefined
-  when: version is undefined or
-        branch_name is undefined or
-        refspec is undefined
+  when: lbc_version is undefined or
+        lbc_branch_name is undefined or
+        lbc_refspec is undefined
   fail:
-    msg: "version, refspec, or branch_name is undefined"
+    msg: "lbc_version, lbc_refspec, or lbc_branch_name is undefined"
 
 - name: Create a commit with no changes
-  command: ostree commit -b {{ branch_name }} --tree=ref={{ refspec }} --add-metadata-string version={{ version }}
+  command: ostree commit -b {{ lbc_branch_name }} --tree=ref={{ lbc_refspec }} --add-metadata-string version={{ lbc_version }}

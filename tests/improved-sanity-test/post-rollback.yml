@@ -1,0 +1,198 @@
+---
+# This playbook requires Ansible 2.2 and an Atomic Host
+- import_role:
+    name: ansible_version_check
+  vars:
+    avc_major: "2"
+    avc_minor: "2"
+  tags:
+    - ansible_version_check
+
+# Ensure the host(s) are indeed Atomic Host(s)
+- import_role:
+    name: atomic_host_check
+  tags:
+    - atomic_host_check
+
+# Before we do any additional actions, let's check the journal to see if
+# anything blew up after reboot
+- import_role:
+    name: journal_fatal_msgs
+  tags:
+    - journal_fatal_msgs_third_boot
+    - journal_fatal_msgs
+
+- import_role:
+    name: selinux_verify
+  tags:
+    - selinux_verify
+
+# TEST
+# Verify that the change to the SELinux file context still exists in
+# the original deployment
+- import_role:
+    name: semanage_fcontext_verify
+  vars:
+    test_dir: "{{ g_semanage_test_dir }}"
+    test_context: "{{ g_semanage_test_context }}"
+  tags:
+    - semanage_fcontext_verify
+
+# TEST
+# Check layered package is still installed
+- import_role:
+    name: rpm_ostree_install_verify
+  vars:
+    roiv_package_name: "{{ g_pkg }}"
+    roiv_binary_name: "{{ g_pkg }}"
+  tags:
+    - rpm_ostree_install_verify
+
+# TEST
+# Check second package is not installed
+- import_role:
+    name: rpm_ostree_uninstall_verify
+  vars:
+    rouv_package_name: "{{ g_ros_install_pkg }}"
+    rouv_binary_name: "{{ g_ros_install_bin }}"
+  tags:
+    - rpm_ostree_uninstall_verify
+
+# TEST
+# Check admin unlock overlayfs missing
+- import_role:
+    name: overlayfs_verify_missing
+  tags:
+    - overlayfs_verify_missing
+
+# TEST
+# Check that /tmp is properly setup yet again
+- import_role:
+    name: tmp_check_perms
+  tags:
+    - tmp_check_perms
+
+# TEST
+# Check that the RPM database is functional yet again
+- import_role:
+    name: rpmdb_verify
+  tags:
+    - rpmdb_verify
+
+# TEST
+# Verify changes still exist in original tree
+- import_role:
+    name: etc_verify_changes
+  tags:
+    - etc_verify_changes
+
+# TEST
+# Verify first user added is still present in original tree
+- import_role:
+    name: user_verify_present
+  vars:
+    uvp_uid: "{{ g_uid1 }}"
+  tags:
+    - user_verify_present
+
+# TEST
+# Verify first files dropped in /var are still in original tree
+- import_role:
+    name: var_files_present
+  vars:
+    vfp_filename: "{{ g_file1 }}"
+    vfp_dirname: "{{ g_dir1 }}"
+  tags:
+    - var_files_present
+
+# TEST
+# Verify that the newest user is not present in the previous tree
+- import_role:
+    name: user_verify_missing
+  vars:
+    uvm_uid: "{{ g_uid2 }}"
+  tags:
+    - user_verify_missing
+
+# TEST
+# Verify the most recent changes to /var are present
+- import_role:
+    name: var_files_present
+  vars:
+    vfp_filename: "{{ g_file2 }}"
+    vfp_dirname: "{{ g_dir2 }}"
+  tags:
+    - var_files_present
+
+# TEST
+# use 'all' keyword to remove all installed pacakges
+- import_role:
+    name: rpm_ostree_uninstall
+  vars:
+    rou_packages: all
+    rou_reboot: true
+  tags:
+    - rpm_ostree_uninstall
+
+# load in the YAML files with archived deployment info
+- import_role:
+    name: load_variables
+  vars:
+    filename: "{{ playbook_dir}}/{{ ansible_host }}_bdsf_archive.yml"
+  tags:
+    - load_variables
+
+# rebase back to original checkout
+- include_role:
+    name: rpm_ostree_rebase
+  vars:
+    ror_remote_name: "{{ g_archive_remote_name }}"
+    ror_refspec: "{{ g_archive_refspec }}"
+    ror_commit: "{{ g_archive_checksum }}"
+  tags:
+    - rpm_ostree_rebase
+
+# Reboot the host and don't continue until expected services have started
+- import_role:
+    name: reboot
+  vars:
+    wait_for_services:
+      - docker
+  tags:
+    - reboot_cleanup
+
+# cleanup any extra deployments
+- import_role:
+    name: rpm_ostree_cleanup_all
+  tags:
+    - rpm_ostree_cleanup_all
+
+# remove any docker artifacts
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+# remove users
+- import_role:
+    name: user_del
+  vars:
+    ud_users:
+      - "{{ g_uid1 }}"
+      - "{{ g_uid2 }}"
+  tags:
+    - user_del
+
+# cleanup our subscriptions because we are nice people
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_unsubscribe
+  tags:
+    - redhat_unsubscribe
+
+# As the final action, check the journal for any fatal problems
+- import_role:
+    name: journal_fatal_msgs
+  tags:
+    - journal_fatal_msgs_final
+    - journal_fatal_msgs
