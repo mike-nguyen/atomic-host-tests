@@ -1017,3 +1017,236 @@
         - name: Clean up deployments
           command: rpm-ostree cleanup -rpmb
 
+
+- name: rpm-ostree - override replace reset
+  hosts: all
+  become: true
+
+  tags:
+    - override_replace_reset
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    - name: Create temp directory
+      command: mktemp -d
+      register: temp_dir
+
+    - name: Get {{ g_replace_pkg }}
+      get_url:
+        url: '{{ g_replace_pkg_url }}'
+        dest: '{{ temp_dir.stdout }}/{{ g_replace_pkg }}.rpm'
+
+    # Set original {{ g_replace_pkg }} nevra
+    - include_role:
+        name: rpm_nevra
+      vars:
+        rn_package: '{{ g_replace_pkg }}'
+
+    - name: Set original nevra facts from rpm
+      set_fact:
+        original_nevra: '{{ rn_nevra }}'
+
+    # Set new {{ g_replace_pkg }} nevra
+    - include_role:
+        name: rpm_nevra
+      vars:
+        rn_package: '{{ temp_dir.stdout }}/{{ g_replace_pkg }}.rpm'
+
+    - name: Set new nevra facts
+      set_fact:
+        new_nevra: '{{ rn_nevra }}'
+
+    - include_role:
+        name: rpm_ostree_override
+      vars:
+        roo_subcommand: 'replace'
+        roo_packages: '{{ temp_dir.stdout }}/{{ g_replace_pkg }}.rpm'
+
+    - include_role:
+        name: reboot
+
+    - include_role:
+        name: rpm_ostree_status
+
+    - include_role:
+        name: rpm_nevra_compare
+      vars:
+        rnc_tuple1: '{{ original_nevra }}'
+        rnc_tuple2: '{{ ros_booted["base-local-replacements"][0][1] }}'
+
+    - include_role:
+        name: rpm_nevra_compare
+      vars:
+        rnc_tuple1: '{{ new_nevra }}'
+        rnc_tuple2: '{{ ros_booted["base-local-replacements"][0][0] }}'
+
+    - include_role:
+        name: rpm_ostree_override
+      vars:
+        roo_subcommand: 'reset'
+        roo_packages: '{{ g_replace_pkg }}'
+
+    - include_role:
+        name: reboot
+
+    - include_role:
+        name: rpm_ostree_status
+
+    - name: Fail if replaced packages are found in rpm-ostree status
+      when: ros_booted["base-local-replacements"]|length > 0
+      fail:
+        msg: |
+          Expected: No replaced base packages
+          Actual:   {{ ros_booted["base-local-replacements"] }}
+
+    # cleanup
+    - include_role:
+        name: rpm_ostree_cleanup_all
+
+- name: rpm-ostree - override remove reset
+  hosts: all
+  become: true
+
+  tags:
+    - override_remove_reset
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    # remove the package
+    - include_role:
+        name: rpm_ostree_override
+      vars:
+        roo_subcommand: 'remove'
+        roo_packages: '{{ g_remove_pkg }}'
+
+    - include_role:
+        name: reboot
+
+    # run rpm-ostree status to get the json output for the removed packages
+    - include_role:
+        name: rpm_ostree_status
+
+    # base removals should contain the removed package
+    - name: Fail if removed package is not in base-removals
+      when: g_remove_pkg != ros_booted['base-removals'][0][1]
+      fail:
+        msg: |
+          Expected: {{ g_remove_pkg }} is in base-removals
+          Actual:
+            base-removals:
+              {{ ros_booted['base-removals'] }}
+
+    # verify the package has been removed by checking the rpm output
+    - include_role:
+        name: rpm_ostree_uninstall_verify
+      vars:
+        rouv_package_name: '{{ g_remove_pkg }}'
+
+    # cleanup by resetting package
+    - include_role:
+        name: rpm_ostree_override
+      vars:
+        roo_subcommand: 'reset'
+        roo_packages: '{{ g_remove_pkg }}'
+
+    - include_role:
+        name: reboot
+
+    - include_role:
+        name: rpm_ostree_status
+
+    - name: Fail if removed package is in base-removals after rolling back
+      when: ros_booted['base-removals']|length > 0
+      fail:
+        msg: |
+          Expected: No packages in base-removals
+          Actual:   {{ ros_booted['base-removals'] }}
+
+    # check that the base package is installed again
+    - include_role:
+        name: rpm_ostree_install_verify
+      vars:
+        roiv_package_name: '{{ g_remove_pkg }}'
+        roiv_status_check: false
+        roiv_binary_check: false
+
+    # cleanup
+    - include_role:
+        name: rpm_ostree_cleanup_all
+
+
+- name: rpm-ostree - negative testing
+  hosts: all
+  become: true
+
+  tags:
+    - override_negative
+
+  vars_files:
+    - vars.yml
+
+  tasks:
+    # TEST
+    # Attempt to remove a package that is not in the base layer
+    - name: Attempt to remove a package that is not in base layer
+      command: rpm-ostree override remove foobar
+      register: roor_foobar
+      ignore_errors: true
+
+    - name: Fail if removal was successful
+      when: roor_foobar|success
+      fail:
+        msg: |
+          Expected: Unable to remove a package that is not in the base layer
+          Actual:   rpm-ostree returned success for removing a package that
+                    does not exist in the base layer
+
+    # TEST
+    # Attempt to remove a package that is a dependency
+    - name: Attempt to remove a package with dependency
+      command: rpm-ostree override remove curl
+      register: roor_curl
+      ignore_errors: true
+
+    - name: Fail if removal was successful
+      when: roor_curl|success
+      fail:
+        msg: |
+          Expected: User should not be able to remove a package that is a
+                    dependency of another package
+          Actual:   User was able to remove a package that is a dependency
+
+    # TEST
+    # Attempt to reset a package that does not exist
+    - name: Attempt to reset a package that does not exist
+      command: rpm-ostree override reset foobar
+      register: roor_ne_foobar
+      ignore_errors: true
+
+    - name: Fail if reset of non-existent package is successful
+      when: roor_ne_foobar|success
+      fail:
+        msg: |
+          Expected: User cannot reset a package that does not exist in the base
+                    layer
+          Actual:   User reset a package that does not exist in the base layer
+
+    # TEST
+    # Attempt to reset a package that was not replaced/removed
+    - name: Attempt to reset a package that was not replaced or removed
+      command: rpm-ostree override reset bash
+      register: roor_bash
+      ignore_errors: true
+
+    - name: Fail if reset of an untouched base layer package is successful
+      when: roor_bash|success
+      fail:
+        msg: |
+          Expected: User cannot reset a package that has not been removed or
+                    replaced
+          Actual:   User reset a package that has not been removed or replaced
+
