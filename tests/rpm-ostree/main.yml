@@ -1059,9 +1059,10 @@
         new_nevra: '{{ rn_nevra }}'
 
     - include_role:
-        name: rpm_ostree_override_replace
+        name: rpm_ostree_override
       vars:
-        rorep_packages: '{{ temp_dir.stdout }}/{{ g_replace_pkg }}.rpm'
+        roo_subcommand: 'replace'
+        roo_packages: '{{ temp_dir.stdout }}/{{ g_replace_pkg }}.rpm'
 
     - include_role:
         name: reboot
@@ -1082,9 +1083,10 @@
         rnc_tuple2: '{{ ros_booted["base-local-replacements"][0][0] }}'
 
     - include_role:
-        name: rpm_ostree_override_reset
+        name: rpm_ostree_override
       vars:
-        rores_packages: '{{ g_replace_pkg }}'
+        roo_subcommand: 'reset'
+        roo_packages: '{{ g_replace_pkg }}'
 
     - include_role:
         name: reboot
@@ -1116,9 +1118,10 @@
   tasks:
     # remove the package
     - include_role:
-        name: rpm_ostree_override_remove
+        name: rpm_ostree_override
       vars:
-        rorem_packages: '{{ g_remove_pkg }}'
+        roo_subcommand: 'remove'
+        roo_packages: '{{ g_remove_pkg }}'
 
     - include_role:
         name: reboot
@@ -1145,9 +1148,10 @@
 
     # cleanup by resetting package
     - include_role:
-        name: rpm_ostree_override_reset
+        name: rpm_ostree_override
       vars:
-        rores_packages: '{{ g_remove_pkg }}'
+        roo_subcommand: 'reset'
+        roo_packages: '{{ g_remove_pkg }}'
 
     - include_role:
         name: reboot
