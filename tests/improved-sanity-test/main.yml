@@ -952,9 +952,9 @@
 
     # rebase back to original checkout
     - role: rpm_ostree_rebase
-      remote_name: "{{ g_archive_remote_name }}"
-      refspec: "{{ g_archive_refspec }}"
-      commit: "{{ g_archive_checksum }}"
+      ror_remote_name: "{{ g_archive_remote_name }}"
+      ror_refspec: "{{ g_archive_refspec }}"
+      ror_commit: "{{ g_archive_checksum }}"
       tags:
         - rpm_ostree_rebase
 
