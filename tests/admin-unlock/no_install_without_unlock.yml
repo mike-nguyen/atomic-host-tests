@@ -1,0 +1,16 @@
+---
+- name: Attempt to install rpm
+  command: rpm -i {{ g_rpm_url }}
+  register: attempted_install
+  failed_when: attempted_install.rc == 0
+
+- import_role:
+    name: rpm_ostree_status
+
+- name: Fail if current deployment has unlocked not set to none
+  when: "'none' not in ros_booted['unlocked']"
+  fail:
+    msg: |
+      Expected: booted deployment has unlocked set to none
+      Actual: booted deployment unlocked is set to
+              {{ ros_booted['unlocked'] }}

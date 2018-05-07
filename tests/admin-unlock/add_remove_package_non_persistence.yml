@@ -1,0 +1,55 @@
+---
+- import_role:
+    name: ostree_admin_unlock
+
+- import_role:
+    name: overlayfs_verify_present
+
+- import_role:
+    name: rpm_install
+  vars:
+    rpm_path: "{{ g_rpm_path }}"
+
+- import_role:
+    name: package_verify_present
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+    check_binary: false
+
+- import_role:
+    name: rpm_uninstall
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+
+- import_role:
+    name: package_verify_missing
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+
+- import_role:
+    name: rpm_install
+  vars:
+    rpm_path: "{{ g_rpm_path }}"
+  tags:
+    - second_install
+
+- import_role:
+    name: package_verify_present
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+    check_binary: false
+  tags:
+    - second_verify_present
+
+- import_role:
+    name: reboot
+
+- import_role:
+    name: overlayfs_verify_missing
+
+- import_role:
+    name: package_verify_missing
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+  tags:
+    - second_verify_missing

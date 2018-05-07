@@ -43,338 +43,94 @@
 #     error message specifying that the deployment is already in an unlocked
 #     state: hotfix
 
-- name: Ostree Admin Unlock - Setup
+- name: Ostree Admin Unlock - Test Suite
   hosts: all
   become: true
-
-  tags:
-    - setup
 
   vars_files:
     - vars.yml
 
-  pre_tasks:
-    - name: Verify all
-      when: g_rpm_url is undefined or
-            g_rpm_path is undefined or
-            g_rpm_name is undefined or
-            g_rpm_name_2 is undefined
-      fail:
-        msg: "Required variables are not defined.  Check vars.yml file."
-
-  roles:
-    - role: ansible_version_check
-      tags:
-        - ansible_version_check
-
-    # Subscribe if the system is RHEL
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_subscription
-      tags:
-        - redhat_subscription
-
-- name: Ostree Admin Unlock - Add/Remove Package - Non-persistence
-  hosts: all
-  become: true
-
-  tags:
-    - unlock_add_remove_package_non_persistence
-
-  vars_files:
-    - vars.yml
-
-  roles:
-    - role: ostree_admin_unlock
-
-    - role: overlayfs_verify_present
-
-    - role: rpm_install
-      rpm_path: "{{ g_rpm_path }}"
-
-    - role: package_verify_present
-      rpm_name: "{{ g_rpm_name }}"
-      check_binary: false
-
-    - role: rpm_uninstall
-      rpm_name: "{{ g_rpm_name }}"
-
-    - role: package_verify_missing
-      rpm_name: "{{ g_rpm_name }}"
-
-    - role: rpm_install
-      rpm_path: "{{ g_rpm_path }}"
-      tags:
-        - second_install
-
-    - role: package_verify_present
-      rpm_name: "{{ g_rpm_name }}"
-      check_binary: false
-      tags:
-        - second_verify_present
-
-    - role: reboot
-
-    - role: overlayfs_verify_missing
-
-    - role: package_verify_missing
-      rpm_name: "{{ g_rpm_name }}"
-      tags:
-        - second_verify_missing
-
-- name: Ostree Admin Unlock - Hotfix - Add/Remove Package Persistence
-  hosts: all
-  become: true
-
-  tags:
-    - hotfix_add_remove_package_persistence
-
-  vars_files:
-    - vars.yml
-
-  roles:
-    - role: ostree_admin_unlock_hotfix
-
-    - role: overlayfs_verify_present
-
-    - role: rpm_install
-      rpm_path: "{{ g_rpm_path }}"
-
-    - role: package_verify_present
-      rpm_name: "{{ g_rpm_name }}"
-      check_binary: false
-
-    - role: rpm_uninstall
-      rpm_name: "{{ g_rpm_name }}"
-
-    - role: package_verify_missing
-      rpm_name: "{{ g_rpm_name }}"
-
-    - role: rpm_install
-      rpm_path: "{{ g_rpm_path }}"
-      tags:
-        - second_install
-
-    - role: package_verify_present
-      rpm_name: "{{ g_rpm_name }}"
-      check_binary: false
-      tags:
-        - second_verify_present
-
-    - role: reboot
-
-    - role: overlayfs_verify_present
-
-    - role: package_verify_present
-      rpm_name: "{{ g_rpm_name }}"
-      check_binary: false
-      tags:
-        - third_verify_present
-
-    - role: epel_rpm_url
-      rpm_name: "{{ g_rpm_name_2 }}"
-
-    - role: rpm_install
-      rpm_url: "{{ epel_rpm_url }}"
-      tags:
-        - third_install
-
-    - role: package_verify_present
-      rpm_name: "{{ g_rpm_name_2 }}"
-      tags:
-        - fourth_verify_present
-
-- name: Ostree Admin Unlock - Hotfix - Rollback
-  hosts: all
-  become: true
-
-  tags:
-    - hotfix_rollback
-
-  vars_files:
-    - vars.yml
-
-  roles:
-    - role: rpm_ostree_rollback
-
-    - role: reboot
-
-    - role: overlayfs_verify_missing
-
-    - role: package_verify_missing
-      rpm_name: "{{ g_rpm_name }}"
-
-    - role: package_verify_missing
-      rpm_name: "{{ g_rpm_name_2 }}"
-      tags:
-        - second_package_verify_missing
-
-- name: Ostree Admin Unlock - No Install Without Unlock
-  hosts: all
-  become: true
-
-  tags:
-    - cannot_install_without_unlock
-
-  vars_files:
-    - vars.yml
+  vars:
+    tests: []
 
   tasks:
-    - name: Attempt to install rpm
-      command: rpm -i {{ g_rpm_url }}
-      register: attempted_install
-      failed_when: attempted_install.rc == 0
+    - include_tasks: 'setup.yml'
 
-    - import_role:
-        name: rpm_ostree_status
-
-    - name: Fail if current deployment has unlocked not set to none
-      when: "'none' not in ros_booted['unlocked']"
-      fail:
-        msg: |
-          Expected: booted deployment has unlocked set to none
-          Actual: booted deployment unlocked is set to
-                  {{ ros_booted['unlocked'] }}
-
-- name: Ostree Admin Unlock - Unlock Twice - Error Message
-  hosts: all
-  become: true
-
-  tags:
-    - unlock_twice_error_message
-
-  vars_files:
-    - vars.yml
-
-  tasks:
-    - name: Unlock system
-      command: ostree admin unlock
-
-    - import_role:
-        name: rpm_ostree_status
-
-    - name: Verify rpm_ostree status is unlocked and set to hotfix
-      when: "'development' not in ros_booted['unlocked']"
-      fail:
-        msg: |
-          Expected: booted deployment has unlocked set to hotfix
-          Actual: booted deployment unlocked is set to
-                  {{ ros_booted['unlocked'] }}
-
-    - name: Run unlock twice (system is already unlocked)
-      command: ostree admin unlock
-      register: double_unlock
-      failed_when: double_unlock.rc != 1
-
-    - name: Fail when error message is incorrect
-      when: "'Deployment is already in unlocked state: development' not in double_unlock.stderr"
-      fail:
-        msg: |
-          Expected: Error message should indicated the deployment is already in
-                    the unlocked state: development
-          Actual: {{ double_unlock.stderr }}
-
-    - name: Run unlock hotfix (system is already locked)
-      command: ostree admin unlock --hotfix
-      register: double_hotfix_unlock
-      failed_when: double_hotfix_unlock.rc != 1
-
-    - name: Fail when error message is incorrect
-      when: "'Deployment is already in unlocked state: development' not in double_unlock.stderr"
-      fail:
-        msg: |
-          Expected: Error message should indicate the deployment is already in
-                    the unlocked state: development
-          Actual: {{ double_unlock.stderr }}
-
-    - import_role:
-        name: reboot
-
-- name: Ostree Admin Unlock - Hotfix Unlock Twice - Error Message
-  hosts: all
-  become: true
-
-  tags:
-    - hotfix_unlock_twice_error_message
-
-  vars_files:
-    - vars.yml
-
-  tasks:
-    - name: Unlock system with hotfix
-      command: ostree admin unlock --hotfix
-
-    - import_role:
-        name: rpm_ostree_status
-
-    - name: Verify rpm_ostree status has unlocked set to hotfix
-      when: "'hotfix' not in ros_booted['unlocked']"
-      fail:
-        msg: |
-          Expected: booted deployment is unlocked and set to hotfix
-          Actual: {{ ros_booted['unlocked'] }}
-
-    - name: Fail if non booted deployment does not have same commit id as booted
-      when: ros_not_booted['checksum'] != ros_booted['checksum']
-      fail:
-        msg: |
-          Expected: deployments should have the same commit id
-          Actual:
-            Booted Deployment Checksum: {{ ros_booted['checksum'] }}
-            Non Booted Deployment Checksum: {{ ros_not_booted['checksum'] }}
-
-    - name: Run unlock twice (system is already unlocked)
-      command: ostree admin unlock
-      register: double_unlock
-      failed_when: double_unlock.rc != 1
-
-    - name: Fail when error message is incorrect
-      when:
-        - "'Deployment is already in unlocked state: hotfix' not in double_unlock.stderr"
-      fail:
-        msg: |
-          Expected: Error message should indicated deployment is already in
-                    unlocked state: hotfix
-          Actual: {{ double_unlock.stderr }}
-
-    - name: Run unlock hotfix (system is already locked)
-      command: ostree admin unlock --hotfix
-      register: double_hotfix_unlock
-      failed_when: double_hotfix_unlock.rc != 1
-
-    - name: Fail when error message is incorrect
-      when:
-        - "'Deployment is already in unlocked state: hotfix' not in double_unlock.stderr"
-      fail:
-        msg: |
-          Expected: Error message should indicated deployment is already in
-                    unlocked state: hotfix
-          Actual: {{ double_unlock.stderr }}
+    # TEST
+    # Verify installed/removed packages do not persist through reboot with unlock
+    - block:
+        - include_tasks: 'add_remove_package_non_persistence.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Add/Remove Package - Non Persistence', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Add/Remove Package - Non Persistence', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
 
 
-- name: Ostree Admin Unlock - Cleanup
-  hosts: all
-  become: true
+    # TEST
+    # Verify installed/removed packages persist through reboot with hotfix unlock
+    - block:
+        - include_tasks: 'add_remove_package_persistence.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Add/Remove Package - Persistence', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Add/Remove Package - Persistence', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
 
-  tags:
-    - cleanup
 
-  vars_files:
-    - vars.yml
+    # TEST
+    # Verify rollback to original deployment after hotfix unlock
+    - block:
+        - include_tasks: 'hotfix_rollback.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Hotfix rollback', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Hotfix rollback', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
 
-  roles:
-    - role: rpm_ostree_rollback
-      tags:
-        - rpm_ostree_rollback
 
-    - role: reboot
-      tags:
-        - reboot
+    # TEST
+    # Verify no packages can be installed wihtout unlock
+    - block:
+        - include_tasks: 'no_install_without_unlock.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'No install without unlock', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'No install without unlock', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
 
-    - role: rpm_ostree_cleanup_all
-      tags:
-        - rpm_ostree_cleanup_all
 
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_unsubscribe
-      tags:
-        - redhat_unsubscribe
+    # TEST
+    # Verify unlocking twice causes error
+    - block:
+        - include_tasks: 'unlock_twice_error.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Unlock twice error', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Unlock twice error', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+
+
+    # TEST
+    # Verify hotfix unlocking twice causes error
+    - block:
+        - include_tasks: 'unlock_twice_hotfix_error.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Unlock twice hotfix error', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Unlock twice hotfix error', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+
+    # CLEANUP
+    - block:
+        # WRITE RESULTS TO FILE
+        - name: Save result to file
+          when: aht_result_file is defined
+          local_action: copy content={{ tests | to_nice_yaml(indent=2) }} dest={{ playbook_dir }}/{{ aht_result_file }}
+
+        - include_tasks: 'cleanup.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name': 'Cleanup', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"

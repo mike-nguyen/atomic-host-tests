@@ -1,0 +1,44 @@
+---
+- name: Unlock system
+  command: ostree admin unlock
+
+- import_role:
+    name: rpm_ostree_status
+
+- name: Verify rpm_ostree status is unlocked and set to hotfix
+  when: "'development' not in ros_booted['unlocked']"
+  fail:
+    msg: |
+      Expected: booted deployment has unlocked set to hotfix
+      Actual: booted deployment unlocked is set to
+              {{ ros_booted['unlocked'] }}
+
+- name: Run unlock twice (system is already unlocked)
+  command: ostree admin unlock
+  register: double_unlock
+  failed_when: double_unlock.rc != 1
+
+- name: Fail when error message is incorrect
+  when: "'Deployment is already in unlocked state: development' not in double_unlock.stderr"
+  fail:
+    msg: |
+      Expected: Error message should indicated the deployment is already in
+                the unlocked state: development
+      Actual: {{ double_unlock.stderr }}
+
+- name: Run unlock hotfix (system is already locked)
+  command: ostree admin unlock --hotfix
+  register: double_hotfix_unlock
+  failed_when: double_hotfix_unlock.rc != 1
+
+- name: Fail when error message is incorrect
+  when: "'Deployment is already in unlocked state: development' not in double_unlock.stderr"
+  fail:
+    msg: |
+      Expected: Error message should indicate the deployment is already in
+                the unlocked state: development
+      Actual: {{ double_unlock.stderr }}
+
+- import_role:
+    name: reboot
+
