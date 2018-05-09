@@ -1,4 +1,6 @@
 ---
+# vim: set ft=ansible
+
 - import_role:
     name: rpm_ostree_rollback
   tags:

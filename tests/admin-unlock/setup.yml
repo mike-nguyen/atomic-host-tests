@@ -1,4 +1,6 @@
 ---
+# vim: set ft=ansible
+
 - name: Verify all
   when: g_rpm_url is undefined or
         g_rpm_path is undefined or

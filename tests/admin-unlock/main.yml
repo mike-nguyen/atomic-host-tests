@@ -1,5 +1,15 @@
 ---
-# vim: set ft=ansible:
+# vim: set ft=ansible
+#
+# Logging
+#   Running the playbook will automatically create a test result file in the
+#   playbook directory called admin-unlock-results.log.
+#
+#   To disable result logging, run this playbook with the following option:
+#     -e log_results=false
+#
+#   To change the log file name and location run with the following option:
+#     -e result_file=/your/file.log
 #
 # Core Functionality
 #   Verify rpms can installed and uninstalled after ostree admin unlock
@@ -54,7 +64,14 @@
     tests: []
 
   tasks:
+    - name: Set logging
+      set_fact:
+        log_results: true
+        result_file: "{{ playbook_dir }}/admin-unlock-result.log"
+      tags: setup
+
     - include_tasks: 'setup.yml'
+      tags: setup
 
     # TEST
     # Verify installed/removed packages do not persist through reboot with unlock
@@ -65,7 +82,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Add/Remove Package - Non Persistence', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      tags: add_remove_package_non_persistence
 
     # TEST
     # Verify installed/removed packages persist through reboot with hotfix unlock
@@ -76,7 +93,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Add/Remove Package - Persistence', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      tags: add_remove_package_persistence
 
     # TEST
     # Verify rollback to original deployment after hotfix unlock
@@ -87,7 +104,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Hotfix rollback', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      tags: hotfix_rollback
 
     # TEST
     # Verify no packages can be installed wihtout unlock
@@ -98,7 +115,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'No install without unlock', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      tags: no_install_without_unlock
 
     # TEST
     # Verify unlocking twice causes error
@@ -109,7 +126,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Unlock twice error', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      tags: unlock_twice_error
 
     # TEST
     # Verify hotfix unlocking twice causes error
@@ -120,17 +137,24 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Unlock twice hotfix error', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      tags:  unlock_twice_hotfix_error
 
     # CLEANUP
     - block:
-        # WRITE RESULTS TO FILE
-        - name: Save result to file
-          when: aht_result_file is defined
-          local_action: copy content={{ tests | to_nice_yaml(indent=2) }} dest={{ playbook_dir }}/{{ aht_result_file }}
-
         - include_tasks: 'cleanup.yml'
         - set_fact:
             tests: "{{ tests + [ { 'name': 'Cleanup', 'result':'Passed', 'result_details': '' } ] }}"
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+
+        # WRITE RESULTS TO FILE
+        - name: Remove existing log files
+          local_action: file path={{ result_file }} state=absent
+          become: false
+
+        - name: Save result to file
+          when: log_results
+          local_action: copy content={{ tests | to_nice_yaml(indent=2) }} dest={{ result_file }}
+          become: false
+      tags: cleanup

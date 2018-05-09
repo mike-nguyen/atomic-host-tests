@@ -1,4 +1,6 @@
 ---
+# vim: set ft=ansible
+
 - name: Attempt to install rpm
   command: rpm -i {{ g_rpm_url }}
   register: attempted_install
