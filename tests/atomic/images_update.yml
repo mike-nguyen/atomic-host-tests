@@ -1,0 +1,132 @@
+---
+# set ft=ansible
+#
+
+- name: Set image name
+  set_fact:
+    fq_name: "docker.io/alpine"
+    local_name: "{{ ansible_docker0.ipv4.address}}:5000/alpine"
+
+# Testing images update is a bit tricky since in the docker world, tags don't
+# follow any versioning--latest doesn't really mean latest.  Docker and skopeo
+# determine if there is an updated image based on the docker image layers.
+# In order to test images update, this test uses a private registry and tag
+# manipulation in order to commit and push new layers to the private registry
+# then update the image.
+
+# Setup the private registry
+- import_role:
+    name: docker_private_registry
+
+# Pull the latest image
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ fq_name }}:latest"
+
+# Re-tag the image to local name to push it to the private registry
+- import_role:
+    name: docker_tag
+  vars:
+    dt_image: "{{ fq_name }}:latest"
+    dt_tag: "{{ local_name }}:latest"
+
+# Push the image to the private registry
+- import_role:
+    name: atomic_push
+  vars:
+    apsh_image: "{{ local_name }}:latest"
+    apsh_options: "--anonymous --insecure"
+
+- name: Get HOSTNAME to use to commit change
+  command: >
+      docker run docker.io/alpine:latest
+      bin/sh -c 'echo hello > /test && printenv HOSTNAME'
+  register: cmd_output
+
+# Commit the changes to the image
+# Note: cmd_output comes from the command role above
+- import_role:
+    name: docker_commit
+  vars:
+    dc_commit: "{{ cmd_output.stdout }}"
+    dc_image: "{{ fq_name }}:latest"
+
+# Remove the locally tagged image so we can pull it again from the private
+# registry
+- import_role:
+    name: docker_rmi
+  vars:
+    drmi_image_name: "{{ local_name }}:latest"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ local_name }}"
+      tag: "latest"
+    expect_missing: true
+
+# Pull the image from the private registry
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ local_name }}:latest"
+
+# Here is the tag manipulation.  In order to push an update to the private
+# registry, the new commited image must be tagged with the local name so it
+# can be pushed to the private registry.  The original image needs to be
+# saved so it can be tagged back to latest and then get updated from the
+# private registry.
+- import_role:
+    name: docker_tag
+  vars:
+    dt_image: "{{ local_name }}:latest"
+    dt_tag: "{{ local_name }}:latest-1"
+
+# The new commit image  needs to be tagged with the private registry name
+#  so we can push the new layer
+- import_role:
+    name: docker_tag
+  vars:
+    dt_image: "{{ fq_name }}:latest"
+    dt_tag: "{{ local_name }}:latest"
+
+# Push the new commit to the private registry
+- import_role:
+    name: atomic_push
+  vars:
+    apsh_image: "{{ local_name }}:latest"
+    apsh_options: "--anonymous --insecure"
+
+# Remove the new commit image
+- import_role:
+    name: docker_rmi
+  vars:
+    drmi_image_name: "{{ local_name }}:latest"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ local_name }}"
+      tag: "latest"
+    expect_missing: true
+
+# Re-tag the original image back to latest.  At this point, the registry
+# contains the new layer image and the one locally is one commit behind.
+# For some reason, the arguments passed to docker_tag get swapped only on
+# this instance of the call.  It only works if we pass the vars like this.
+- import_role:
+    name: docker_tag
+  vars:
+    dt_image: "{{ local_name }}:latest-1"
+    dt_tag: "{{ local_name }}:latest"
+
+# Now, the the atomic images update command checks the registry to see if
+# there is a new image and updates it
+- import_role:
+    name: command
+  vars:
+    cmd: atomic images update {{ local_name }}:latest
+    output: "Writing manifest to image destination"

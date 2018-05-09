@@ -1,0 +1,57 @@
+---
+# set ft=ansible
+#
+
+- name: Set container name
+  set_fact:
+    fq_name: "docker.io/busybox"
+    short_name: "busybox"
+    tag: 1
+
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ fq_name }}:{{ tag }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ fq_name }}"
+      tag: "1"
+
+- import_role:
+    name: atomic_images_delete
+  vars:
+    aid_image: "{{ ailv_match['id'] }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ fq_name }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ short_name }}:{{ tag }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ fq_name }}"
+      tag: "1"
+
+- import_role:
+    name: atomic_images_delete
+  vars:
+    aid_image: "{{ ailv_match['id'] }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ fq_name }}"
+    expect_missing: true

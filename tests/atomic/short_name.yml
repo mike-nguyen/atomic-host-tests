@@ -1,0 +1,94 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ cockpit_short_name }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_fq_name }}"
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_short_name }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_install
+  vars:
+    ai_image: "{{ cockpit_short_name }}"
+
+- import_role:
+    name: atomic_run
+  vars:
+    ar_image: "{{ cockpit_short_name }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_fq_name }}"
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_short_name }}"
+    check_mode: false
+
+# aclv_acl_jq_match is the container entry that matches the image_name
+# specified in the atomic_containers_list_verify role above.  The
+# shortened container id is used to stop and delete the container.
+- import_role:
+    name: atomic_stop
+  vars:
+    as_container: "{{ aclv_acl_jq_match['id'][:12] }}"
+
+- import_role:
+    name: atomic_containers_delete
+  vars:
+    acd_container: "{{ aclv_acl_jq_match['id'][:12] }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_fq_name }}"
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_short_name }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_uninstall
+  vars:
+    au_image: "{{ cockpit_short_name }}"
+
+- import_role:
+    name: atomic_images_delete
+  vars:
+    aid_image: "{{ ailv_match['id'][:12] }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_fq_name }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_short_name }}"
+    expect_missing: true

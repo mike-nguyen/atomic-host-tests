@@ -1,0 +1,35 @@
+---
+# set ft=ansible
+#
+
+# Run 'rpm-ostree status --json' to determine the current booted
+# deployment and setup the 'ros_booted' variable
+- import_role:
+    name: rpm_ostree_status
+
+- name: Indicate 'atomic-registries' is layered
+  when: "'atomic-registries' in ros_booted['packages']"
+  set_fact:
+    ar_is_layered: true
+
+- import_role:
+    name: docker_remove_all
+
+# If the 'atomic-registries' package was layered, we can rollback,
+# reboot, and cleanup to be back to pristine condition
+- when:
+    - ar_is_layered is defined
+    - ar_is_layered
+  block:
+    - import_role:
+        name: rpm_ostree_rollback
+
+    - import_role:
+        name: reboot
+
+    - name: Cleanup deployments
+      command: rpm-ostree cleanup -rpmb
+
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_unsubscribe
