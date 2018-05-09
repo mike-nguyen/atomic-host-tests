@@ -1,0 +1,24 @@
+---
+# vim: set ft=ansible
+
+- import_role:
+    name: rpm_ostree_rollback
+  tags:
+    - rpm_ostree_rollback
+
+- import_role:
+    name: reboot
+  tags:
+    - reboot
+
+- import_role:
+    name: rpm_ostree_cleanup_all
+  tags:
+    - rpm_ostree_cleanup_all
+
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_unsubscribe
+  tags:
+    - redhat_unsubscribe
+

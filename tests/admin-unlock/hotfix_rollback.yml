@@ -1,0 +1,24 @@
+---
+# vim: set ft=ansible
+
+- import_role:
+    name: rpm_ostree_rollback
+
+- import_role:
+    name: reboot
+
+- import_role:
+    name: overlayfs_verify_missing
+
+- import_role:
+    name: package_verify_missing
+  vars:
+    rpm_name: "{{ g_rpm_name }}"
+
+- import_role:
+    name: package_verify_missing
+  vars:
+    rpm_name: "{{ g_rpm_name_2 }}"
+  tags:
+    - second_package_verify_missing
+

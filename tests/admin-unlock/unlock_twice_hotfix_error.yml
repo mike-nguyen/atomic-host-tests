@@ -1,0 +1,53 @@
+---
+# vim: set ft=ansible
+
+- name: Unlock system with hotfix
+  command: ostree admin unlock --hotfix
+
+- import_role:
+    name: rpm_ostree_status
+
+- name: Verify rpm_ostree status has unlocked set to hotfix
+  when: "'hotfix' not in ros_booted['unlocked']"
+  fail:
+    msg: |
+      Expected: booted deployment is unlocked and set to hotfix
+      Actual: {{ ros_booted['unlocked'] }}
+
+- name: Fail if non booted deployment does not have same commit id as booted
+  when: ros_not_booted['checksum'] != ros_booted['checksum']
+  fail:
+    msg: |
+      Expected: deployments should have the same commit id
+      Actual:
+        Booted Deployment Checksum: {{ ros_booted['checksum'] }}
+        Non Booted Deployment Checksum: {{ ros_not_booted['checksum'] }}
+
+- name: Run unlock twice (system is already unlocked)
+  command: ostree admin unlock
+  register: double_unlock
+  failed_when: double_unlock.rc != 1
+
+- name: Fail when error message is incorrect
+  when:
+    - "'Deployment is already in unlocked state: hotfix' not in double_unlock.stderr"
+  fail:
+    msg: |
+      Expected: Error message should indicated deployment is already in
+                unlocked state: hotfix
+      Actual: {{ double_unlock.stderr }}
+
+- name: Run unlock hotfix (system is already locked)
+  command: ostree admin unlock --hotfix
+  register: double_hotfix_unlock
+  failed_when: double_hotfix_unlock.rc != 1
+
+- name: Fail when error message is incorrect
+  when:
+    - "'Deployment is already in unlocked state: hotfix' not in double_unlock.stderr"
+  fail:
+    msg: |
+      Expected: Error message should indicated deployment is already in
+                unlocked state: hotfix
+      Actual: {{ double_unlock.stderr }}
+
