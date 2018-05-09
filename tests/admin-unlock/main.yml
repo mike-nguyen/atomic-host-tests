@@ -63,7 +63,7 @@
   vars:
     tests: []
 
-  tasks:
+  pre_tasks:
     - name: Set logging
       set_fact:
         log_results: true
@@ -73,6 +73,7 @@
     - include_tasks: 'setup.yml'
       tags: setup
 
+  tasks:
     # TEST
     # Verify installed/removed packages do not persist through reboot with unlock
     - block:
@@ -139,6 +140,7 @@
             tests: "{{ tests + [ { 'name':'Unlock twice hotfix error', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
       tags:  unlock_twice_hotfix_error
 
+  post_tasks:
     # CLEANUP
     - block:
         - include_tasks: 'cleanup.yml'
@@ -147,7 +149,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      always:
         # WRITE RESULTS TO FILE
         - name: Remove existing log files
           local_action: file path={{ result_file }} state=absent
