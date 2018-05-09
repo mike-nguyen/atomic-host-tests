@@ -147,7 +147,7 @@
       rescue:
         - set_fact:
             tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
-
+      always:
         # WRITE RESULTS TO FILE
         - name: Remove existing log files
           local_action: file path={{ result_file }} state=absent
