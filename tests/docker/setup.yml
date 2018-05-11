@@ -1,0 +1,28 @@
+---
+# set ft=ansible
+#
+
+- name: Check for docker-latest package if running against docker-latest
+  when: g_docker_latest
+  command: rpm -qa
+  register: pkgs
+
+- name: Fail if docker latest is not installed
+  when:
+    - g_docker_latest
+    - "'docker-latest' not in pkgs.stdout"
+  fail:
+    msg: "This test is not valid because docker-latest is not installed"
+
+- import_role:
+    name: ansible_version_check
+  tags:
+    - ansible_version_check
+
+# Subscribe if the system is RHEL
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_subscription
+  tags:
+    - redhat_subscription
+

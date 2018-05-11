@@ -1,0 +1,37 @@
+---
+# set ft=ansible
+#
+
+- when: g_docker_latest
+  block:
+    - name: Stop and disable docker-latest
+      service:
+        name: docker-latest
+        enabled: "no"
+        state: stopped
+
+    - name: Revert docker-latest binary
+      blockinfile:
+        dest: /etc/sysconfig/docker
+        block: |
+          #DOCKERBINARY=/usr/bin/docker-latest
+          #DOCKERDBINARY=/usr/bin/dockerd-latest
+          #DOCKER_CONTAINERD_BINARY=/usr/bin/docker-containerd-latest
+          #DOCKER_CONTAINERD_SHIM_BINARY=/usr/bin/docker-containerd-shim-latest
+
+    - name: Re-enable docker
+      service:
+        name: docker
+        enabled: true
+        state: started
+
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_unsubscribe
+  tags:
+    - redhat_unsubscribe
