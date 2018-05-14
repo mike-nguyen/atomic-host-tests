@@ -1,4 +1,4 @@
-- name: Ostree Admin Unlock - Test Suite
+- name: Docker - Test Suite
   hosts: all
   become: true
 
@@ -19,7 +19,7 @@
       tags: setup
 
     # TEST
-    # Verify installed/removed packages do not persist through reboot with unlock
+    # Basic functional test of docker
     - block:
         - include_tasks: 'functional.yml'
         - set_fact:

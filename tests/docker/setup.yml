@@ -4,15 +4,7 @@
 
 - name: Check for docker-latest package if running against docker-latest
   when: g_docker_latest
-  command: rpm -qa
-  register: pkgs
-
-- name: Fail if docker latest is not installed
-  when:
-    - g_docker_latest
-    - "'docker-latest' not in pkgs.stdout"
-  fail:
-    msg: "This test is not valid because docker-latest is not installed"
+  command: rpm -q docker-latest
 
 - import_role:
     name: ansible_version_check
