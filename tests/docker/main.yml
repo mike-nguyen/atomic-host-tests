@@ -1,156 +1,50 @@
----
-# vim: set ft=ansible:
-#
-# !!!NOTE!!! This playbook was tested using Ansible 2.2; it is recommended
-# that the same version is used.
-#
-# This playbook tests the basic functions of docker or docker-latest. These
-# functions include:
-#   - docker build
-#   - docker images
-#   - docker ps
-#   - docker pull
-#   - docker rm
-#   - docker rmi
-#   - docker run
-#   - docker start
-#   - docker stop
-#
-# To test docker-current, set the g_docker_latest variable to false in the
-# vars.yml file.
-#
-
-- name: Docker - Setup
+- name: Docker - Test Suite
   hosts: all
   become: true
-
-  tags:
-    - setup
 
   vars_files:
     - vars.yml
 
+  vars:
+    tests: []
 
-  pre_tasks:
-    - name: Check for docker-latest package if running against docker-latest
-      when: g_docker_latest
-      command: rpm -qa
-      register: pkgs
+  tasks:
+    - name: Set logging
+      set_fact:
+        log_results: true
+        result_file: "{{ playbook_dir }}/docker-result.log"
+      tags: setup
 
-    - name: Fail if docker latest is not installed
-      when:
-        - g_docker_latest
-        - "'docker-latest' not in pkgs.stdout"
-      fail:
-        msg: "This test is not valid because docker-latest is not installed"
+    - include_tasks: 'setup.yml'
+      tags: setup
 
-  roles:
-    - role: ansible_version_check
-      tags:
-        - ansible_version_check
+    # TEST
+    # Basic functional test of docker
+    - block:
+        - include_tasks: 'functional.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Basic functional test', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Basic functional test', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      tags: functional
 
-    # Subscribe if the system is RHEL
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_subscription
-      tags:
-        - redhat_subscription
+    # CLEANUP
+    - block:
+        - include_tasks: 'cleanup.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name': 'Cleanup', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      always:
+        # WRITE RESULTS TO FILE
+        - name: Remove existing log files
+          local_action: file path={{ result_file }} state=absent
+          become: false
 
-- name: Docker - Functional Tests
-  hosts: all
-  become: true
-
-  tags:
-    - functional
-
-  vars_files:
-    - vars.yml
-
-  roles:
-    - role: osname_set_fact
-      tags:
-        - osname_set_fact
-
-    - role: docker_remove_all
-      tags:
-        - docker_remove_all
-
-    - role: docker_latest_setup
-      tags:
-        - docker_latest_setup
-      when: g_docker_latest
-
-    - role: docker_pull_base_image
-      tags:
-        - docker_pull_base_image
-
-    - role: docker_build
-      db_src: "roles/docker_build/files/{{ g_osname }}/httpd/"
-      db_image_name: "{{ g_httpd_name }}"
-      tags:
-        - docker_build
-
-    - role: docker_run
-      dr_image_name: "{{ g_httpd_name }}"
-      dr_run_options: "-d -p 80:80"
-      tags:
-        - docker_run
-
-    - role: check_open_port
-      cop_port: "80"
-      cop_url: "http://localhost:80"
-      tag:
-        - check_open_port
-
-    - role: docker_rm_container
-      drc_container_name: "{{ g_httpd_name }}"
-      tags:
-        - docker_rm__container
-
-    - role: docker_rmi
-      drmi_image_name: "{{ g_httpd_name }}"
-      tags:
-        - docker_rmi
-
-- name: Docker - Cleanup
-  hosts: all
-  become: true
-
-  tags:
-    - cleanup
-
-  vars_files:
-    - vars.yml
-
-  pre_tasks:
-    - when: g_docker_latest
-      block:
-        - name: Stop and disable docker-latest
-          service:
-            name: docker-latest
-            enabled: "no"
-            state: stopped
-
-        - name: Revert docker-latest binary
-          blockinfile:
-            dest: /etc/sysconfig/docker
-            block: |
-              #DOCKERBINARY=/usr/bin/docker-latest
-              #DOCKERDBINARY=/usr/bin/dockerd-latest
-              #DOCKER_CONTAINERD_BINARY=/usr/bin/docker-containerd-latest
-              #DOCKER_CONTAINERD_SHIM_BINARY=/usr/bin/docker-containerd-shim-latest
-
-        - name: Re-enable docker
-          service:
-            name: docker
-            enabled: true
-            state: started
-
-  roles:
-    - role: docker_remove_all
-      tags:
-        - docker_remove_all
-
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_unsubscribe
-      tags:
-        - redhat_unsubscribe
+        - name: Save result to file
+          when: log_results
+          local_action: copy content={{ tests | to_nice_yaml(indent=2) }} dest={{ result_file }}
+          become: false
+      tags: cleanup

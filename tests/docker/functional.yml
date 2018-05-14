@@ -1,0 +1,62 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: osname_set_fact
+  tags:
+    - osname_set_fact
+
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+- when: g_docker_latest
+  import_role:
+    name: docker_latest_setup
+  tags:
+    - docker_latest_setup
+
+- import_role:
+    name: docker_pull_base_image
+  tags:
+    - docker_pull_base_image
+
+- import_role:
+    name: docker_build
+  vars:
+    db_src: "roles/docker_build/files/{{ g_osname }}/httpd/"
+    db_image_name: "{{ g_httpd_name }}"
+  tags:
+    - docker_build
+
+- import_role:
+    name: docker_run
+  vars:
+    dr_image_name: "{{ g_httpd_name }}"
+    dr_run_options: "-d -p 80:80"
+  tags:
+    - docker_run
+
+- import_role:
+    name: check_open_port
+  vars:
+    cop_port: "80"
+    cop_url: "http://localhost:80"
+  tag:
+    - check_open_port
+
+- import_role:
+    name: docker_rm_container
+  vars:
+    drc_container_name: "{{ g_httpd_name }}"
+  tags:
+    - docker_rm__container
+
+- import_role:
+    name: docker_rmi
+  vars:
+    drmi_image_name: "{{ g_httpd_name }}"
+  tags:
+    - docker_rmi

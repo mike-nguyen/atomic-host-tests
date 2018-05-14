@@ -1,0 +1,20 @@
+---
+# set ft=ansible
+#
+
+- name: Check for docker-latest package if running against docker-latest
+  when: g_docker_latest
+  command: rpm -q docker-latest
+
+- import_role:
+    name: ansible_version_check
+  tags:
+    - ansible_version_check
+
+# Subscribe if the system is RHEL
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_subscription
+  tags:
+    - redhat_subscription
+
