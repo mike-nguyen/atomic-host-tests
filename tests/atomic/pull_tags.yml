@@ -4,20 +4,20 @@
 
 - name: Set container name
   set_fact:
-    fq_name: "docker.io/busybox"
-    short_name: "busybox"
-    tag: 1
+    pt_fq_name: "docker.io/busybox"
+    pt_short_name: "busybox"
+    pt_tag: 1
 
 - import_role:
     name: atomic_pull
   vars:
-    apl_image: "{{ fq_name }}:{{ tag }}"
+    apl_image: "{{ pt_fq_name }}:{{ pt_tag }}"
 
 - import_role:
     name: atomic_images_list_verify
   vars:
     expected_values:
-      repo: "{{ fq_name }}"
+      repo: "{{ pt_fq_name }}"
       tag: "1"
 
 - import_role:
@@ -29,19 +29,19 @@
     name: atomic_images_list_verify
   vars:
     expected_values:
-      repo: "{{ fq_name }}"
+      repo: "{{ pt_fq_name }}"
     expect_missing: true
 
 - import_role:
     name: atomic_pull
   vars:
-    apl_image: "{{ short_name }}:{{ tag }}"
+    apl_image: "{{ pt_short_name }}:{{ pt_tag }}"
 
 - import_role:
     name: atomic_images_list_verify
   vars:
     expected_values:
-      repo: "{{ fq_name }}"
+      repo: "{{ pt_fq_name }}"
       tag: "1"
 
 - import_role:
@@ -53,5 +53,5 @@
     name: atomic_images_list_verify
   vars:
     expected_values:
-      repo: "{{ fq_name }}"
+      repo: "{{ pt_fq_name }}"
     expect_missing: true

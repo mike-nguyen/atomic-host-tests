@@ -4,21 +4,21 @@
 
 - name: Set image name
   set_fact:
-    fq_name: "docker.io/busybox"
-    digest:
+    pd_fq_name: "docker.io/busybox"
+    pd_digest:
       sha256:29f5d56d12684887bdfa50dcd29fc31eea4aaf4ad3bec43daf19026a7ce69912
 
 - import_role:
     name: atomic_pull
   vars:
-    apl_image: "{{ fq_name }}@{{ digest }}"
+    apl_image: "{{ pd_fq_name }}@{{ pd_digest }}"
 
 - import_role:
     name: atomic_images_list_verify
   vars:
     expected_values:
-      repo: "{{ fq_name }}"
-      tag: "{{ digest|regex_replace('sha256:') }}"
+      repo: "{{ pd_fq_name }}"
+      tag: "{{ pd_digest|regex_replace('sha256:') }}"
 
 # Delete the image to return to a clean state
 - import_role:
@@ -30,5 +30,5 @@
     name: atomic_images_list_verify
   vars:
     expected_values:
-      repo: "{{ fq_name }}"
+      repo: "{{ pd_fq_name }}"
     expect_missing: true
