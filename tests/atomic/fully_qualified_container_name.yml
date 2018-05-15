@@ -1,0 +1,92 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ cockpit_cname }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_cname }}"
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_cname }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_install
+  vars:
+    ai_image: "{{ cockpit_cname }}"
+    ai_options: "--name={{ cp_name }}"
+
+- import_role:
+    name: atomic_run
+  vars:
+    ar_image: "{{ cockpit_cname }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_cname }}"
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_cname }}"
+    check_mode: false
+
+- import_role:
+    name: atomic_stop
+  vars:
+    as_container: "{{ aclv_acl_jq_match['id'] }}"
+
+- import_role:
+    name: atomic_containers_delete
+  vars:
+    acd_container: "{{ aclv_acl_jq_match['id'] }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_cname }}"
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_cname }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_uninstall
+  vars:
+    au_image: "{{ cockpit_cname }}"
+
+- import_role:
+    name: atomic_images_delete
+  vars:
+    aid_image: "{{ ailv_match['id'] }}"
+
+- import_role:
+    name: atomic_images_list_verify
+  vars:
+    expected_values:
+      repo: "{{ cockpit_cname }}"
+    expect_missing: true
+
+- import_role:
+    name: atomic_containers_list_verify
+  vars:
+    expected_values:
+      image_name: "{{ cockpit_cname }}"
+    expect_missing: true

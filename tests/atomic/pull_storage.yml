@@ -1,0 +1,49 @@
+---
+# set ft=ansible
+#
+
+- name: Set image name
+  set_fact:
+    ps_fq_name: "docker.io/busybox"
+
+- name: Delete all images
+  import_role:
+    name: atomic_images_delete_all
+
+- name: Pull {{ ps_fq_name }} using ostree
+  import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ ps_fq_name }}"
+    apl_options: "--storage=ostree"
+
+# The TYPE field doesn't show up in the json output (see
+# https://github.com/projectatomic/atomic/issues/1129) so
+# we must check for ostree in the output of the command
+- name: Fail if ostree storage not in atomic list output
+  command: atomic images list
+  register: ail_output
+  failed_when: >
+    ps_fq_name not in ail_output.stdout and
+    "ostree" not in ail_output.stdout
+
+- name: Delete all images
+  import_role:
+    name: atomic_images_delete_all
+
+- import_role:
+    name: atomic_pull
+  vars:
+    apl_image: "{{ ps_fq_name }}"
+    apl_options: "--storage=docker"
+
+# The TYPE field doesn't show up in the json output (see
+# https://github.com/projectatomic/atomic/issues/1129) so
+# we must check for ostree in the output of the command
+- name: Fail if ostree storage not in atomic list output
+  command: atomic images list
+  register: ail_output
+  failed_when: >
+    ps_fq_name not in ail_output.stdout and
+    "docker" not in ail_output.stdout
+
