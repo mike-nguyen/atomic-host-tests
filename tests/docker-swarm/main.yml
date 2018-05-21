@@ -1,198 +1,50 @@
----
-# vim: set ft=ansible:
-#
-# !!!NOTE!!! This playbook was tested using Ansible 2.2; it is recommended
-# that the same version is used.
-#
-# This playbook is a basic functional test for docker swarm
-#  - Initialize docker swarm
-#  - Create docker swarm service
-#  - Scale replicas up and down
-#  - Remove service
-#  - Leave swarm
-#
-
-- name: Docker Swarm - Setup
+- name: Docker Swarm - Test Suite
   hosts: all
   become: true
-
-  tags:
-    - setup
 
   vars_files:
     - vars.yml
 
-  roles:
-    - role: ansible_version_check
-      tags:
-        - ansible_version_check
-
-    - role: docker_version_check
-      docker_version: 1.12.0
-      tags:
-        - docker_version_check
-
-    # Subscribe if the system is RHEL
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_subscription
-      tags:
-        - redhat_subscription
-
-    # disable live-restore so docker swarm can manage container lifecycle
-    - role: docker_live_restore_disable
-
-- name: Docker Swarm - Basic Functional Test
-  hosts: all
-  become: true
-
-  tags:
-    - basic
-
-  vars_files:
-    - vars.yml
+  vars:
+    tests: []
 
   tasks:
-    - name: Verify docker swarm is not running
-      command: docker info
-      register: di
+    - name: Set logging
+      set_fact:
+        log_results: true
+        result_file: "{{ playbook_dir }}/docker-swarm-result.log"
+      tags: setup
 
-    - name: Fail if docker swarm is already running
-      when:  "'Swarm: active' in di.stdout"
-      fail:
-        msg: |
-          Expected: Swarm is not set to active
-          Actual: {{ di.stdout }}
+    - include_tasks: 'setup.yml'
+      tags: setup
 
-    - name: Initialize docker swarm
-      command: docker swarm init --advertise-addr 127.0.0.1
+    # TEST
+    # Basic functional test of docker swarm
+    - block:
+        - include_tasks: 'functional.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Basic functional test', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Basic functional test', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      tags: functional
 
-    - name: Verify docker swarm is started
-      command: docker info
-      register: di
+    # CLEANUP
+    - block:
+        - include_tasks: 'cleanup.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name': 'Cleanup', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      always:
+        # WRITE RESULTS TO FILE
+        - name: Remove existing log files
+          local_action: file path={{ result_file }} state=absent
+          become: false
 
-    - name: Fail if docker swarm is is not active
-      when: "'Swarm: active' not in di.stdout"
-      fail:
-        msg: |
-          Expected: Swarm is set to active
-          Actual: {{ di.stdout }}
-
-    - name: Create docker swarm service
-      command: >
-        docker service create
-        --replicas 1
-        --name {{ g_service_name }}
-        -p {{ g_ports }}
-        {{ g_image_name }}
-
-    - name: Verify service is started
-      command: docker service ls
-      register: dsls
-
-    - name: Fail if httpd is not in output
-      when: g_service_name not in dsls.stdout
-      fail:
-        msg: |
-          Expected: {{ g_service_name }} is in docker service ls output
-          Actual: {{ dsls.stdout }}
-
-    - name: Wait for the {{ g_service_name }} container to open port 80
-      wait_for:
-        port: 80
-        timeout: 30
-
-    - name: Run docker ps
-      command: docker ps
-      register: dps
-
-    - name: Fail if docker ps output does not contain {{ g_image_name }}
-      when: g_image_name not in dps.stdout
-      fail:
-        msg: |
-          Expected: {{ g_image_name }} is in docker ps output
-          Actual: {{ dps.stdout }}
-
-    - name: Inspect the {{ g_service_name }} service
-      command: docker inspect {{ g_service_name }}
-      register: dis
-
-    # check image
-    - name: Fail when image is incorrect
-      when: g_image_name not in dis.stdout
-      fail:
-        msg: |
-          Expected: {{ g_image_name }} is in docker inspect output
-          Actual: {{ dis.stdout }}
-
-    - name: Scale service to 5 instances
-      command: docker service scale {{ g_service_name }}=5
-
-    - name: Check for 5 instances of {{ g_service_name }}
-      shell: docker ps | grep {{ g_image_name }} | wc -l
-      register: num_services
-      until: num_services.stdout == "5"
-      retries: 5
-      delay: 2
-
-    - name: Fail if services did not scale
-      when: num_services.stdout != "5"
-      fail:
-        msg: |
-          Expected: Number of services is set to 5
-          Actual: Number of services is set to {{ num_services.stdout }}
-
-    - name: Scale service back to 1 instance
-      command: docker service scale {{ g_service_name }}=1
-
-    - name: Check for 1 instance of {{ g_service_name }}
-      shell: docker ps | grep {{ g_image_name }} | wc -l
-      register: num_services
-      until: num_services.stdout == "1"
-      retries: 5
-      delay: 2
-
-    - name: Remove {{ g_service_name }}
-      command: docker service remove {{ g_service_name }}
-
-    - name: Verify {{ g_service_name }} is not longer active
-      command: docker service ls
-      register: dsls
-
-    - name: Fail if {{ g_service_name }} is still in docker service ls output
-      when: g_service_name in dsls.stdout
-      fail:
-        msg: |
-          Expected: {{ g_service_name }} should not be in docker service ls
-                    output
-          Actual: {{ dsls.stdout }}
-
-    - name: Deactivate swarm
-      command: docker swarm leave --force
-
-    - name: Verify swarm is inactive
-      command: docker info
-      register: di
-
-    - name: Fail if swarm is not inactive
-      when: "'Swarm: inactive' not in di.stdout"
-      fail:
-        msg: |
-          Expected: Swarm set to inactive
-          Actual: {{ di.stdout }}
-
-- name: Docker Swarm - Cleanup
-  hosts: all
-  become: true
-
-  tags:
-    - cleanup
-
-  roles:
-    - role: docker_remove_all
-      tags:
-        - docker_remove_all
-
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_unsubscribe
-      tags:
-        - redhat_unsubscribe
+        - name: Save result to file
+          when: log_results
+          local_action: copy content={{ tests | to_nice_yaml(indent=2) }} dest={{ result_file }}
+          become: false
+      tags: cleanup

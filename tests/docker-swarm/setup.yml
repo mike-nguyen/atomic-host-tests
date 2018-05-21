@@ -1,0 +1,27 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: ansible_version_check
+  tags:
+    - ansible_version_check
+
+- import_role:
+    name: docker_version_check
+  vars:
+    docker_version: 1.12.0
+  tags:
+    - docker_version_check
+
+# Subscribe if the system is RHEL
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_subscription
+  tags:
+    - redhat_subscription
+
+# disable live-restore so docker swarm can manage container lifecycle
+- import_role:
+    name: docker_live_restore_disable
+

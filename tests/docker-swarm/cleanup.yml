@@ -1,0 +1,14 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_unsubscribe
+  tags:
+    - redhat_unsubscribe
