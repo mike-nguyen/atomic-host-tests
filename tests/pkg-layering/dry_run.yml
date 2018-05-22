@@ -1,0 +1,20 @@
+---
+# set ft=ansible
+#
+
+- name: Attempt to install package with -n / --dry-run option
+  command: rpm-ostree install "{{ g_pkg1 }}" -n
+  register: dry
+
+- name: Fail if Exiting because of is not in output
+  when: "'Exiting because' not in dry.stdout"
+  fail:
+    msg: |
+      Expected: Dry run output contains exiting because
+      Actual: {{ dry.stdout }}
+
+- import_role:
+    name: rpm_ostree_uninstall_verify
+  vars:
+    rouv_package_name: "{{ g_pkg1 }}"
+    rouv_status_check: true

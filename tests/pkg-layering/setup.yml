@@ -1,0 +1,25 @@
+---
+# set ft=ansible
+#
+
+- name: Verify all variables
+  when: g_pkg1 is undefined or
+        g_pkg2 is undefined or
+        g_invalid_pkg is undefined or
+        g_nonroot_pkg is undefined or
+        g_deployed_pkg is undefined or
+        g_epel_pkg is undefined
+  fail:
+    msg: "Required variables are not defined.  Check vars.yml file."
+
+- import_role:
+    name: ansible_version_check
+  tags:
+    - ansible_version_check
+
+# Subscribe if the system is RHEL
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_subscription
+  tags:
+    - redhat_subscription

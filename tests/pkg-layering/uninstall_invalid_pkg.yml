@@ -1,0 +1,18 @@
+---
+# set ft=ansible
+#
+
+- name: Attempt to uninstall non-existent package
+  command: rpm-ostree uninstall {{ g_invalid_pkg }}
+  register: uninstall
+  failed_when: uninstall.rc != 1
+
+- name: Fail if error not expected
+  when:
+    - "'is not currently requested' not in uninstall.stderr"
+    - "g_invalid_pkg not in uninstall.stderr"
+  fail:
+    msg: |
+      Expected: {{ g_invalid_pkg }} is not currently requested in rpm-ostree
+                uninstall output
+      Actual: {{ uninstall.stderr }}

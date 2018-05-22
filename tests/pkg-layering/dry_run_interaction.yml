@@ -1,0 +1,54 @@
+---
+# set ft=ansible
+#
+
+- name: Test Install {{ g_pkg1 }} and do not reboot
+  command: rpm-ostree install {{ g_pkg1 }}
+  register: roi_pkg1
+  retries: 5
+  delay: 60
+  until: roi_pkg1|success
+
+- name: Dry run install {{ g_pkg2 }}
+  command: rpm-ostree install {{ g_pkg2 }} --dry-run
+  register: dryrun
+
+- name: Fail if Exiting because of is not in output
+  when: "'Exiting because' not in dryrun.stdout"
+  fail:
+    msg: |
+      Expected: Dry run output contains exiting because
+      Actual: {{ dryrun.stdout }}
+
+# This role provides the following variables:
+#  - ros: result of 'rpm-ostree status --json'
+#  - ros_json: ros.stdout piped through the from_json filter
+#  - ros_num_deployments:  number of deployments on host
+#  - ros_booted: JSON object of the booted deployment
+#  - ros_not_booted: JSON object of the not booted deployment
+- name: Get rpm-ostree status output
+  import_role:
+    name: rpm_ostree_status
+
+- name: Set packages when deployment is not booted
+  set_fact:
+    pending_pkgs: "{{ ros_not_booted['packages'] }}"
+
+- name: Fail if {{ g_pkg2 }} is in pending packages
+  when: g_pkg2 in pending_pkgs
+  fail:
+    msg: |
+      Expected: {{ g_pkg2 }} should not be in rpm-ostree status output
+      Actual: {{ pending_pkgs }}
+
+- name: Fail if {{ g_pkg1 }} is not in pending packages
+  when: g_pkg1 not in pending_pkgs
+  fail:
+    msg: |
+      Expected: {{ g_pkg1 }}  in rpm-ostree status output
+      Actual: {{ pending_pkgs }}
+
+- name: Fail if {{ g_pkg1 }} is installed
+  command: command -v {{ g_pkg1 }}
+  register: binary
+  failed_when: binary.rc != 1

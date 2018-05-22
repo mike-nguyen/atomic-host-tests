@@ -1,0 +1,33 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: rpm_ostree_install
+  vars:
+    roi_packages: httpd
+    roi_reboot: true
+
+- import_role:
+    name: reboot
+
+- name: start httpd service
+  service:
+    name: httpd
+    state: started
+
+- name: Check page on port 80
+  command: curl http://localhost
+
+- name: Uninstall httpd
+  command: rpm-ostree uninstall httpd
+
+- import_role:
+    name: reboot
+
+- include_role:
+    name: rpm_ostree_uninstall_verify
+  vars:
+    rouv_package_name: httpd
+    rouv_binary_name: httpd
+    rouv_status_check: true

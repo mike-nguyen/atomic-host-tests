@@ -1,0 +1,30 @@
+---
+# set ft=ansible
+#
+
+- name: Attempt to install package that is already in the deployment
+  command: rpm-ostree install {{ g_deployed_pkg }}
+
+- import_role:
+    name: reboot
+
+# This role provides the following variables:
+#  - ros: result of 'rpm-ostree status --json'
+#  - ros_json: ros.stdout piped through the from_json filter
+#  - ros_num_deployments:  number of deployments on host
+#  - ros_booted: JSON object of the booted deployment
+#  - ros_not_booted: JSON object of the not booted deployment
+- name: Get rpm-ostree status output
+  import_role:
+    name: rpm_ostree_status
+
+- name: Set packages for booted deployment
+  set_fact:
+    req_pkgs: "{{ ros_booted['requested-packages'] }}"
+
+- name: Fail if {{ g_deployed_pkg }} is not in requested packages
+  when: g_deployed_pkg not in req_pkgs
+  fail:
+    msg: |
+      Expected: {{ g_deployed_pkg }} is in rpm-ostree status output
+      Actual: {{ req_pkgs }}

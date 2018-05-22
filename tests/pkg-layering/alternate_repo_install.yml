@@ -1,0 +1,36 @@
+---
+# set ft=ansible
+#
+
+- name: Copy GPG Key to Host
+  copy:
+    src=RPM-GPG-KEY-EPEL-7
+    dest=/etc/pki/rpm-gpg/
+
+- name: Add EPEL repo
+  yum_repository:
+    name: epel
+    description: Extra Packages for Enterprise Linux 7 - $basearch
+    mirrorlist: >
+      https://mirrors.fedoraproject.org/metalink?repo=epel-7&arch=$basearch
+    failovermethod: priority
+    gpgcheck: true
+    enabled: true
+    gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
+
+- name: Install {{ g_epel_pkg }} from EPEL
+  command: rpm-ostree install {{ g_epel_pkg }}
+  register: roi_epel
+  retries: 5
+  delay: 60
+  until: roi_epel|success
+
+- import_role:
+    name: reboot
+
+- import_role:
+    name: rpm_ostree_install_verify
+  vars:
+    roiv_package_name: "{{ g_epel_pkg }}"
+    roiv_binary_check: true
+    roiv_status_check: true
