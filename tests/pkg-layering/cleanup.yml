@@ -1,0 +1,21 @@
+---
+# set ft=ansible
+#
+
+- name: Uninstall all packages
+  command: >
+    rpm-ostree uninstall {{ g_pkg1 }} {{ g_epel_pkg }} {{ g_deployed_pkg }}
+
+- import_role:
+    name: reboot
+
+- import_role:
+    name: rpm_ostree_cleanup_all
+  tags:
+    - rpm_ostree_cleanup_all
+
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_unsubscribe
+  tags:
+    - redhat_unsubscribe

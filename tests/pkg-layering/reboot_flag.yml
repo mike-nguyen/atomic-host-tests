@@ -1,0 +1,27 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: rpm_ostree_install
+  vars:
+    roi_packages: "{{ g_pkg1 }}"
+    roi_reboot: true
+
+- import_role:
+    name: rpm_ostree_install_verify
+  vars:
+    roiv_package_name: "{{ g_pkg1 }}"
+    roiv_binary_name: "{{ g_pkg1 }}"
+
+- import_role:
+    name: rpm_ostree_uninstall
+  vars:
+    rou_packages: "{{ g_pkg1 }}"
+    rou_reboot: true
+
+- import_role:
+    name: rpm_ostree_uninstall_verify
+  vars:
+    rouv_package_name: "{{ g_pkg1 }}"
+    rouv_binary_name: "{{ g_pkg1 }}"

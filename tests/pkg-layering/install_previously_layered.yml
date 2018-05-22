@@ -1,0 +1,8 @@
+---
+# set ft=ansible
+#
+
+- name: Install already layered package
+  command: rpm-ostree install {{ g_pkg1 }}
+  register: ros_install
+  failed_when: ros_install.rc == 0

@@ -1,0 +1,16 @@
+---
+# set ft=ansible
+#
+
+- name: Attempt to install non-existent package
+  command: rpm-ostree install {{ g_invalid_pkg }}
+  register: nonexist
+  failed_when: nonexist.rc != 1
+
+- name: Fail if error not expected
+  when: "'No package' not in nonexist.stderr"
+  fail:
+    msg: |
+      Expected: No package is contained in the rpm-ostree install output
+                when attempting to install an invalid package
+      Actual: {{ nonexist.stderr }}
