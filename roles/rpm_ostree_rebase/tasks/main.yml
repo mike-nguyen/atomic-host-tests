@@ -6,13 +6,13 @@
 #
 # rpm-ostree rebase
 #   params:
-#     refspec (required) - remote refspec
-#     commit (optional) - rebase to this commit
-#     remote_name (optional) - name for remote
-#     remote_url (optional) - remote url will trigger adding of remote
+#     ror_refspec (required) - remote refspec
+#     ror_commit (optional) - rebase to this commit
+#     ror_remote_name (optional) - name for remote
+#     ror_remote_url (optional) - remote url will trigger adding of remote
 #
 - name: Fail if refspec is not defined
-  when: refspec is undefined
+  when: ror_refspec is undefined
   fail:
     msg: "ror_refspec is not defined"
 

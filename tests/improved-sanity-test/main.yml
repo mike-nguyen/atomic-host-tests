@@ -42,17 +42,20 @@
     - role: ansible_version_check
       tags:
         - ansible_version_check
+        - rhcos
 
     # Set up handler notification
     - role: handler_notify_on_failure
       handler_name: h_get_journal
       tags:
         - handler_notify_on_failure
+        - rhcos
 
     # Ensure the host(s) are indeed Atomic Host(s)
     - role: atomic_host_check
       tags:
         - atomic_host_check
+        - rhcos
 
     # Before we do anything substantial, let's check the journal to see if
     # anything blew up on boot
@@ -60,6 +63,7 @@
       tags:
         - journal_fatal_msgs_first_boot
         - journal_fatal_msgs
+        - rhcos
 
     # Check RPM signatures
     - role: rpm_signature_verify
@@ -78,6 +82,7 @@
       archive: true
       tags:
         - booted_deployment_set_fact
+        - rhcos
 
     # Setup local branch and upgrade right away so packages are layered on
     # top of the local branch.  If the local branch is created before the
@@ -87,6 +92,7 @@
       branch_name: local-branch
       tags:
         - local_branch_setup
+        - rhcos
 
     # Commit to the local branch
     - role: local_branch_commit
@@ -95,17 +101,20 @@
       version: test1
       tags:
         - local_branch_commit
+        - rhcos
 
     # Modify the origin file so we can use rpm-ostree directly
     - role: origin_file_modify
       refspec: local-branch
       tags:
         - origin_file_modify
+        - rhcos
 
     # Do the actual upgrade
     - role: rpm_ostree_upgrade
       tags:
         - rpm_ostree_upgrade_setup
+        - rhcos
 
     # Reboot the host and don't continue until expected services have started
     - role: reboot
@@ -113,11 +122,13 @@
         - docker
       tags:
         - reboot_setup
+        - rhcos
 
     # Set some facts that are used in multiple roles
     - role: osname_set_fact
       tags:
         - osname_set_fact
+        - rhcos
 
     # TEST
     # Verify that rpm-ostree can be run as non-root or sudo
@@ -127,6 +138,7 @@
       expect_failure: false
       tags:
         - command_privilege_verify
+        - rhcos
 
     # TEST
     # Verify that the output from 'atomic host status'
@@ -140,6 +152,7 @@
     - role: selinux_verify
       tags:
         - selinux_verify
+        - rhcos
 
     # TEST
     # Verify that SELinux file contexts can be modified
@@ -148,6 +161,7 @@
       test_context: "{{ g_semanage_test_context }}"
       tags:
         - semanage_fcontext_mod
+        - rhcos
 
     # Sets the selinux context of test_dir
     - name: semanage_fcontext_verify
@@ -155,23 +169,27 @@
       test_context: "{{ g_semanage_test_context }}"
       tags:
         - semanage_fcontext_verify
+        - rhcos
 
     # Sets boolean defined in vars
     - role: selinux_boolean
       tags:
         - selinux_boolean
+        - rhcos
 
     # TEST
     # Verify that 'firewalld' is correctly installed/configured
     - role: firewalld_service_verify
       tags:
         - firewalld_service_verify
+        - rhcos
 
     # TEST
     # Verify that the Docker storage defaults are correct
     - role: docker_storage_verify
       tags:
         - docker_storage_verify
+        - rhcos
 
     # TEST
     # Verify that 'docker pull' is successful. (Note: this is a different
@@ -179,6 +197,7 @@
     - role: docker_pull_run_remove
       tags:
         - docker_pull_run_remove
+        - rhcos
 
     # TEST
     # Validate 'atomic pull', 'atomic scan' works correctly.
@@ -193,6 +212,7 @@
     - role: docker_remove_all
       tags:
         - docker_remove_all
+        - rhcos
 
     # TEST
     # Validate atomic scan command
@@ -205,6 +225,7 @@
     - role: docker_remove_all
       tags:
         - docker_remove_all
+        - rhcos
 
     # Install package using package layering
     - role: rpm_ostree_install
@@ -233,18 +254,21 @@
     - role: ostree_admin_unlock_hotfix
       tags:
         - ostree_admin_unlock_hotfix
+        - rhcos
 
     # TEST
     # Verify overlayfs is present
     - role: overlayfs_verify_present
       tags:
         - overlayfs_verify_present
+        - rhcos
 
     # Install an rpm using the rpm command
     - role: rpm_install
       rpm_path: "{{ g_rpm_path }}"
       tags:
         - rpm_install
+        - rhcos
 
     # TEST
     # Verify the rpm installed successfully when unlocked
@@ -253,18 +277,21 @@
       check_binary: false
       tags:
         - package_verify_present
+        - rhcos
 
     # TEST
     # Verify that /tmp has the proper permissions
     - role: tmp_check_perms
       tags:
         - tmp_check_perms
+        - rhcos
 
     # TEST
     # Verify that the RPM database is functional
     - role: rpmdb_verify
       tags:
         - rpmdb_verify
+        - rhcos
 
     # Add users, make changes to /etc, and add things to /var before the
     # the system is upgraded
@@ -272,6 +299,7 @@
       ua_uid: "{{ g_uid1 }}"
       tags:
         - user_add
+        - rhcos
 
     # TEST
     # Verify the user created is present
@@ -279,17 +307,20 @@
       uvp_uid: "{{ g_uid1 }}"
       tags:
         - user_verify_present
+        - rhcos
 
     # Modify etc
     - role: etc_modify
       tags:
         - etc_modify
+        - rhcos
 
     # TEST
     # Verify that the changes to etc persisted
     - role: etc_verify_changes
       tags:
         - etc_verify_changes
+        - rhcos
 
     # Add files to var
     - role: var_add_files
@@ -297,6 +328,7 @@
       vaf_dirname: "{{ g_dir1 }}"
       tags:
         - var_add_files
+        - rhcos
 
     # TEST
     # Verify the files added to var persisted
@@ -305,6 +337,7 @@
       vfp_dirname: "{{ g_dir1 }}"
       tags:
         - var_files_present
+        - rhcos
 
     # Pull down docker base images, build a layered image, run it, then
     # remove the container.  But we keep the image around to run later.
@@ -313,6 +346,7 @@
     - role: docker_pull_base_image
       tags:
         - docker_pull_base_image
+        - rhcos
 
     # Build a local httpd image
     - role: docker_build
@@ -335,6 +369,7 @@
       tags:
         - atomic_stop_verify
 
+    #####
     # TEST
     # Verify we can remove the httpd container and it is no longer running
     - role: docker_rm_container
@@ -355,7 +390,7 @@
     - role: check_open_port
       cop_port: "80"
       cop_url: "http://localhost:80"
-      tag:
+      tags:
         - check_open_port
 
     # TEST
@@ -375,6 +410,7 @@
       tags:
         - container_manage_cgroup_bool
         - non_priv_systemd_httpd_container
+        - rhcos
 
     # TEST
     # Build non-priviledged systemd httpd container
@@ -424,6 +460,7 @@
       version: test2
       tags:
         - local_branch_commit
+        - rhcos
       check_mode: false
 
     # TEST
@@ -436,6 +473,7 @@
     - role: rpm_ostree_upgrade
       tags:
         - rpm_ostree_upgrade
+        - rhcos
       check_mode: false
 
     # Before we reboot, check the journal for anything that blew up
@@ -443,12 +481,14 @@
       tags:
         - journal_fatal_msgs_reboot
         - journal_fatal_msgs
+        - rhcos
 
     - role: reboot
       wait_for_services:
         - docker
       tags:
         - reboot_pre_upgrade
+        - rhcos
 
 # ---
 
@@ -469,22 +509,26 @@
     - role: ansible_version_check
       tags:
         - ansible_version_check
+        - rhcos
 
     - role: handler_notify_on_failure
       handler_name: h_get_journal
       tags:
         - handler_notify_on_failure
+        - rhcos
       check_mode: false
 
     - role: atomic_host_check
       tags:
         - atomic_host_check
+        - rhcos
 
     # Setup facts again. (Need to use the 'check_mode: false' option to ensure the
     # role runs again)
     - role: osname_set_fact
       tags:
         - osname_set_fact
+        - rhcos
       check_mode: false
 
     # Before we do any additional actions, let's check the journal to see if
@@ -493,6 +537,7 @@
       tags:
         - journal_fatal_msgs_second_boot
         - journal_fatal_msgs
+        - rhcos
 
     # We remove any subscriptions after the upgrade to verify that
     # 'rpm-ostree status' with the 'unconfigured-state' field present.
@@ -510,6 +555,7 @@
       expect_failure: false
       tags:
         - command_privilege_verify
+        - rhcos
 
     # Compare 'atomic host status' and 'rpm-ostree status' again
     - role: atomic_host_status_verify
@@ -527,6 +573,7 @@
     - role: selinux_verify
       tags:
         - selinux_verify
+        - rhcos
 
     # Verify the change to the SELinux file context persisted
     - role: semanage_fcontext_verify
@@ -534,26 +581,31 @@
       test_context: "{{ g_semanage_test_context }}"
       tags:
         - semanage_fcontext_verify
+        - rhcos
 
     # Verify the SELinux boolean changes
     - role: selinux_boolean_verify
       tags:
         - selinux_boolean_verify
+        - rhcos
 
     # TEST
     # Verify that 'firewalld' is correctly installed/configured
     - role: firewalld_service_verify
       tags:
         - firewalld_service_verify
+        - rhcos
 
     # Verify that the Docker storage defaults haven't changed
     - role: docker_storage_verify
       tags:
         - docker_storage_verify
+        - rhcos
 
     - role: docker_pull_run_remove
       tags:
         - docker_pull_run_remove
+        - rhcos
 
     # Check layered package is still installed
     - role: rpm_ostree_install_verify
@@ -652,6 +704,7 @@
     - role: overlayfs_verify_missing
       tags:
         - overlayfs_verify_missing
+        - rhcos
 
     # TEST
     # Verify admin unlocked package is removed after upgrade
@@ -659,18 +712,21 @@
       rpm_name: "{{ g_rpm_name }}"
       tags:
         - package_verify_missing
+        - rhcos
 
     # TEST
     # Check that /tmp is properly setup again
     - role: tmp_check_perms
       tags:
         - tmp_check_perms
+        - rhcos
 
     # TEST
     # Check that the RPM database is functional again
     - role: rpmdb_verify
       tags:
         - rpmdb_verify
+        - rhcos
 
     # TEST
     # Verify that the new users, /etc changes, and /var additions are still
@@ -679,22 +735,26 @@
       uvp_uid: "{{ g_uid1 }}"
       tags:
         - user_verify_present
+        - rhcos
 
     - role: etc_verify_changes
       tags:
         - etc_verify_changes
+        - rhcos
 
     - role: var_files_present
       vfp_filename: "{{ g_file1 }}"
       vfp_dirname: "{{ g_dir1 }}"
       tags:
         - var_files_present
+        - rhcos
 
     # Add more users and more files to /var ahead of the rollback
     - role: user_add
       ua_uid: "{{ g_uid2 }}"
       tags:
         - user_add
+        - rhcos
 
     # TEST
     # Ensure the user we just added is present
@@ -702,6 +762,7 @@
       uvp_uid: "{{ g_uid2 }}"
       tags:
         - user_verify_present
+        - rhcos
 
     # Add some files to var
     - role: var_add_files
@@ -709,6 +770,7 @@
       vaf_dirname: "{{ g_dir2 }}"
       tags:
         - var_add_files
+        - rhcos
 
     # TEST
     # Ensure the files we added var are present
@@ -717,6 +779,7 @@
       vfp_dirname: "{{ g_dir2 }}"
       tags:
         - var_files_present
+        - rhcos
 
     # TEST
     # Install, run and uninstall cockpit using atomic command
@@ -779,6 +842,7 @@
     - role: docker_remove_all
       tags:
         - docker_remove_all
+        - rhcos
 
     # TEST
     # Validate atomic pull works
@@ -790,6 +854,7 @@
     - role: docker_remove_all
       tags:
         - docker_remove_all
+        - rhcos
 
     # TEST
     # Validate atomic scan works
@@ -802,12 +867,14 @@
     - role: rpm_ostree_rollback
       tags:
         - rpm_ostree_rollback
+        - rhcos
 
     # Before we reboot, check the journal for anything that blew up
     - role: journal_fatal_msgs
       tags:
         - journal_fatal_msgs_second_reboot
         - journal_fatal_msgs
+        - rhcos
 
     # Reboot the host and don't continue until expected services have started
     - role: reboot
@@ -815,6 +882,7 @@
         - docker
       tags:
         - reboot_post_upgrade
+        - rhcos
 
 # ---
 
@@ -835,18 +903,21 @@
     - role: ansible_version_check
       tags:
         - ansible_version_check
+        - rhcos
 
     # Set up handler notification
     - role: handler_notify_on_failure
       handler_name: h_get_journal
       tags:
         - handler_notify_on_failure
+        - rhcos
       check_mode: false
 
     # Ensure the host(s) are indeed Atomic Host(s)
     - role: atomic_host_check
       tags:
         - atomic_host_check
+        - rhcos
 
     # Before we do any additional actions, let's check the journal to see if
     # anything blew up after reboot
@@ -854,10 +925,12 @@
       tags:
         - journal_fatal_msgs_third_boot
         - journal_fatal_msgs
+        - rhcos
 
     - role: selinux_verify
       tags:
         - selinux_verify
+        - rhcos
 
     # TEST
     # Verify that the change to the SELinux file context still exists in
@@ -867,6 +940,7 @@
       test_context: "{{ g_semanage_test_context }}"
       tags:
         - semanage_fcontext_verify
+        - rhcos
 
     # TEST
     # Check layered package is still installed
@@ -895,18 +969,21 @@
     - role: tmp_check_perms
       tags:
         - tmp_check_perms
+        - rhcos
 
     # TEST
     # Check that the RPM database is functional yet again
     - role: rpmdb_verify
       tags:
         - rpmdb_verify
+        - rhcos
 
     # TEST
     # Verify changes still exist in original tree
     - role: etc_verify_changes
       tags:
         - etc_verify_changes
+        - rhcos
 
     # TEST
     # Verify first user added is still present in original tree
@@ -914,6 +991,7 @@
       uvp_uid: "{{ g_uid1 }}"
       tags:
         - user_verify_present
+        - rhcos
 
     # TEST
     # Verify first files dropped in /var are still in original tree
@@ -922,6 +1000,7 @@
       vfp_dirname: "{{ g_dir1 }}"
       tags:
         - var_files_present
+        - rhcos
 
     # TEST
     # Verify that the newest user is not present in the previous tree
@@ -929,6 +1008,7 @@
       uvm_uid: "{{ g_uid2 }}"
       tags:
         - user_verify_missing
+        - rhcos
 
     # TEST
     # Verify the most recent changes to /var are present
@@ -937,6 +1017,7 @@
       vfp_dirname: "{{ g_dir2 }}"
       tags:
         - var_files_present
+        - rhcos
 
     # TEST
     # use 'all' keyword to remove all installed pacakges
@@ -945,12 +1026,14 @@
       rou_reboot: true
       tags:
         - rpm_ostree_uninstall
+        - rhcos
 
     # load in the YAML files with archived deployment info
     - role: load_variables
       filename: "{{ playbook_dir}}/{{ ansible_host }}_bdsf_archive.yml"
       tags:
         - load_variables
+        - rhcos
 
     # rebase back to original checkout
     - role: rpm_ostree_rebase
@@ -959,6 +1042,7 @@
       ror_commit: "{{ g_archive_checksum }}"
       tags:
         - rpm_ostree_rebase
+        - rhcos
 
     # Reboot the host and don't continue until expected services have started
     - role: reboot
@@ -966,16 +1050,19 @@
         - docker
       tags:
         - reboot_cleanup
+        - rhcos
 
     # cleanup any extra deployments
     - role: rpm_ostree_cleanup_all
       tags:
         - rpm_ostree_cleanup_all
+        - rhcos
 
     # remove any docker artifacts
     - role: docker_remove_all
       tags:
         - docker_remove_all
+        - rhcos
 
     # remove users
     - role: user_del
@@ -984,6 +1071,7 @@
         - "{{ g_uid2 }}"
       tags:
         - user_del
+        - rhcos
 
     # cleanup our subscriptions because we are nice people
     - when: ansible_distribution == 'RedHat'
@@ -996,3 +1084,4 @@
       tags:
         - journal_fatal_msgs_final
         - journal_fatal_msgs
+        - rhcos
