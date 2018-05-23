@@ -32,5 +32,8 @@ To run the test, simply invoke as any other Ansible playbook:
 $ ansible-playbook -i inventory tests/improved-sanity-test/main.yml
 ```
 
+To run against a cloud image, run with the option: `--tags cloud_image`
+To run against RHCOS, run with the option:  `--tags rhcos`
+
 *NOTE*: You are responsible for providing a host to run the test against and the
 inventory file for that host.
