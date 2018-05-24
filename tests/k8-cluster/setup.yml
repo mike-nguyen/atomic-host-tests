@@ -1,0 +1,45 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: ansible_version_check
+  tags:
+    - ansible_version_check
+
+- import_role:
+    name: osname_set_fact
+  tags:
+    - osname_set_fact
+
+- when: ansible_distribution == 'RedHat'
+  import_role:
+    name: redhat_subscription
+  tags:
+    - redhat_subscription
+
+- import_role:
+    name: rpm_version
+  vars:
+    rv_rpms: atomic
+
+- when:
+    - ansible_distribution == 'Fedora'
+    - ansible_distribution_major_version | version_compare('26', '>')
+    - g_atomic_host is defined
+    - g_atomic_host['atomic'] | version_compare('1.22', '<=')
+  block:
+    - name: Grab the atomic 1.22 RPMs
+      get_url:
+        url: "{{ item }}"
+        dest: /root/
+      with_items:
+        - https://kojipkgs.fedoraproject.org//packages/atomic/1.22.1/1.fc27/x86_64/atomic-1.22.1-1.fc27.x86_64.rpm
+        - https://kojipkgs.fedoraproject.org//packages/atomic/1.22.1/1.fc27/x86_64/atomic-registries-1.22.1-1.fc27.x86_64.rpm
+
+    - name: Override the atomic package
+      command: rpm-ostree override replace /root/atomic-1.22.1-1.fc27.x86_64.rpm /root/atomic-registries-1.22.1-1.fc27.x86_64.rpm
+
+    - import_role:
+        name: reboot
+

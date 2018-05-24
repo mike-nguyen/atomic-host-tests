@@ -1,122 +1,47 @@
----
-# vim: set ft=ansible:
-#
-#  This playbook creates a kubernetes cluster on a single system using the
-#  example in the Red Hat documentation.  The cluster contains a database
-#  and a webserver pod with data from the database to present a webpage that
-#  says "Red Hat Rocks!"
-#
-#  Execution Steps:
-#    1. Subscribe to RedHat if running RHEL Atomic Host
-#    2. Create an insecure private registry
-#    3. Copy over the mariadb and apache webserver Dockerfile and supporting
-#       files, build the docker image, tag the image, then push to the private
-#       registry.
-#    4. Setup and start the kubernetes pods
-#    5. Setup and start the mariadb and webserver pods
-#    6. Verify that the pods are running and that the mariadb and webserver
-#       can communicate through the kubernetes services
-#
-- name: k8-cluster
+- name: Kubernetes Cluster - Test Suite
   hosts: all
   become: true
 
-# This giant mess of pre-tasks is here to workaround the problem that is fixed
-# in this PR - https://github.com/projectatomic/atomic/pull/1185
-#
-# The fallout from that missing functionality is that the 'kube-proxy' system
-# container will not start correctly unless atomic 1.22 is used to install
-# the system container with the right SELinux labels.
+  vars:
+    tests: []
 
-  pre_tasks:
-    - import_role:
-        name: rpm_version
-      vars:
-        rv_rpms: atomic
+  tasks:
+    - name: Set logging
+      set_fact:
+        log_results: true
+        result_file: "{{ playbook_dir }}/k8-cluster-result.log"
+      tags: setup
 
-    - when:
-        - ansible_distribution == 'Fedora'
-        - ansible_distribution_major_version | version_compare('26', '>')
-        - g_atomic_host is defined
-        - g_atomic_host['atomic'] | version_compare('1.22', '<=')
-      block:
-        - name: Grab the atomic 1.22 RPMs
-          get_url:
-            url: "{{ item }}"
-            dest: /root/
-          with_items:
-            - https://kojipkgs.fedoraproject.org//packages/atomic/1.22.1/1.fc27/x86_64/atomic-1.22.1-1.fc27.x86_64.rpm
-            - https://kojipkgs.fedoraproject.org//packages/atomic/1.22.1/1.fc27/x86_64/atomic-registries-1.22.1-1.fc27.x86_64.rpm
+    - include_tasks: 'setup.yml'
+      tags: setup
 
-        - name: Override the atomic package
-          command: rpm-ostree override replace /root/atomic-1.22.1-1.fc27.x86_64.rpm /root/atomic-registries-1.22.1-1.fc27.x86_64.rpm
+    # TEST
+    # Verify setup of single node kubernetes cluster
+    - block:
+        - include_tasks: 'single_node_cluster.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Single Node Kubernetes Test', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Single Node Kubernetes Test', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      tags: single_node_cluster
 
-        - import_role:
-            name: reboot
+    # CLEANUP
+    - block:
+        - include_tasks: 'cleanup.yml'
+        - set_fact:
+            tests: "{{ tests + [ { 'name': 'Cleanup', 'result':'Passed', 'result_details': '' } ] }}"
+      rescue:
+        - set_fact:
+            tests: "{{ tests + [ { 'name':'Cleanup', 'result':'Failed', 'result_details': ansible_failed_result } ] }}"
+      always:
+        # WRITE RESULTS TO FILE
+        - name: Remove existing log files
+          local_action: file path={{ result_file }} state=absent
+          become: false
 
-  roles:
-    - role: ansible_version_check
-      tags:
-        - ansible_version_check
-
-    - role: osname_set_fact
-      tags:
-        - osname_set_fact
-
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_subscription
-      tags:
-        - redhat_subscription
-
-    - role: docker_private_registry
-      tags:
-        - docker_private_registry
-
-    - role: docker_build_tag_push
-      tags:
-        - docker_build_tag_push
-
-    - when: ansible_distribution == "CentOSDev"
-      role: resize_lv
-      rl_lvname: 'root'
-      rl_lvsize: '6'
-      tags:
-        - resize_lv
-
-    - role: kubernetes_setup
-      tags:
-        - kubernetes_setup
-
-    - role: k8_cluster_services_rc_setup
-      tags:
-        - k8_cluster_services_rc_setup
-
-  post_tasks:
-    - name: Check if everything works!
-      shell: curl http://localhost:80/cgi-bin/action | grep "RedHat rocks"
-      register: curl
-      retries: 6
-      delay: 10
-      until: curl|success
-
-
-- name: Kubernetes Cluster - Cleanup
-  hosts: all
-  become: true
-
-  tags:
-    - cleanup
-
-  roles:
-    - role: k8_remove_all
-      tags:
-        - k8_remove_all
-
-    - role: docker_remove_all
-      tags:
-        - docker_remove_all
-
-    - when: ansible_distribution == 'RedHat'
-      role: redhat_unsubscribe
-      tags:
-        - redhat_unsubscribe
+        - name: Save result to file
+          when: log_results
+          local_action: copy content={{ tests | to_nice_yaml(indent=2) }} dest={{ result_file }}
+          become: false
+      tags: cleanup

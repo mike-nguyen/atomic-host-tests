@@ -1,0 +1,40 @@
+---
+# set ft=ansible
+#
+
+- import_role:
+    name: docker_private_registry
+  tags:
+    - docker_private_registry
+
+- import_role:
+    name: docker_build_tag_push
+  tags:
+    - docker_build_tag_push
+
+- when: ansible_distribution == "CentOSDev"
+  import_role:
+    name: resize_lv
+  vars:
+    rl_lvname: 'root'
+    rl_lvsize: '6'
+  tags:
+    - resize_lv
+
+- import_role:
+    name: kubernetes_setup
+  tags:
+    - kubernetes_setup
+
+- import_role:
+    name: k8_cluster_services_rc_setup
+  tags:
+    - k8_cluster_services_rc_setup
+
+- name: Check if everything works!
+  shell: curl http://localhost:80/cgi-bin/action | grep "RedHat rocks"
+  register: curl
+  retries: 6
+  delay: 10
+  until: curl|success
+
