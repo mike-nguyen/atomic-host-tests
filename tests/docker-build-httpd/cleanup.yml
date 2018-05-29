@@ -1,0 +1,25 @@
+---
+# set ft=ansible
+#
+
+- name: Set MTU on docker daemon
+  lineinfile:
+    dest: /etc/sysconfig/docker-network
+    regexp: "^DOCKER_NETWORK_OPTIONS"
+    line: "DOCKER_NETWORK_OPTIONS="
+
+- name: Restart docker daemon
+  service:
+    name: docker
+    state: restarted
+
+- import_role:
+    name: docker_remove_all
+  tags:
+    - docker_remove_all
+
+- when: ansible_distribution == "RedHat"
+  import_role:
+    name: redhat_unsubscribe
+  tags:
+    - redhat_unsubscribe
