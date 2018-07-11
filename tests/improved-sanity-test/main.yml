@@ -188,7 +188,6 @@
     - role: firewalld_service_verify
       tags:
         - firewalld_service_verify
-        - rhcos
 
     # TEST
     # Verify that the Docker storage defaults are correct
@@ -606,7 +605,6 @@
     - role: firewalld_service_verify
       tags:
         - firewalld_service_verify
-        - rhcos
 
     # Verify that the Docker storage defaults haven't changed
     - role: docker_storage_verify
