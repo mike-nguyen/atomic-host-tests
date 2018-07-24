@@ -53,9 +53,13 @@
   set_fact:
     osname: "{{ ros_booted['osname'] }}"
 
-- name: Get bootloader entry
+- name: Get boot entry file
+  shell: ls -1 /boot/loader/entries/ | grep -E "ostree-[2-]*{{ osname }}[-0]*.conf"
+  register: boot_file
+
+- name: Get initrd file
   shell: >
-    grep ^initrd /boot/loader/entries/ostree-{{ osname }}-0.conf |
+    grep ^initrd /boot/loader/entries/{{ boot_file.stdout }} |
     sed -e 's,initrd ,/boot/,'
   register: initrd
 
@@ -79,9 +83,9 @@
 - import_role:
     name: reboot
 
-- name: Get bootloader entry
+- name: Get boot entry file
   shell: >
-    grep ^initrd /boot/loader/entries/ostree-{{ osname }}-0.conf |
+    grep ^initrd /boot/loader/entries/{{ boot_file.stdout }} |
     sed -e 's,initrd ,/boot/,'
   register: initrd_disabled
 
