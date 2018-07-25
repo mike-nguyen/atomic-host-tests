@@ -23,7 +23,7 @@
     cockpit_cname: "registry.fedoraproject.org/f27/cockpit"
 
 - name: Install cockpit container with tag
-  command: "atomic install {{ cockpit_cname }}:latest"
+  command: "atomic install -n cockpit {{ cockpit_cname }}:latest"
   register: aic
   retries: 5
   delay: 60
@@ -60,8 +60,9 @@
 - name: Delete the cockpit container
   command: atomic --assumeyes containers delete {{ cockpit_cid.stdout }}
 
+# use -n until centos has https://github.com/projectatomic/atomic/issues/1219
 - name: Uninstall cockpit container
-  shell: atomic uninstall {{ cockpit_cname }}
+  shell: atomic uninstall -n cockpit {{ cockpit_cname }}
 
 - name: Check for /etc/pam.d/cockpit file
   stat:
@@ -107,8 +108,9 @@
 - name: Delete container
   command: atomic --assumeyes containers delete {{ cockpit_cid.stdout }}
 
+# use -n until centos has https://github.com/projectatomic/atomic/issues/1219
 - name: Uninstall cockpit container without tag
-  shell: atomic uninstall {{ cockpit_cname }}
+  shell: atomic uninstall -n cockpit {{ cockpit_cname }}
 
 - name: Check for /etc/pam.d/cockpit file
   stat:
