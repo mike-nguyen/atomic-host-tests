@@ -5,6 +5,18 @@
 
 - name: Attempt to install package that is already in the deployment
   command: rpm-ostree install {{ g_deployed_pkg }}
+  register: roi
+  failed_when:
+    - roi.rc == 1
+    - '"to explicitly require it" not in roi.stderr'
+
+# Account for newer rpm-ostree package layering behavior
+- when: '"to explicitly require it" in roi.stderr'
+  set_fact:
+    ai: true
+
+- when: ai is defined and ai
+  command: rpm-ostree install --allow-inactive {{ g_deployed_pkg }}
 
 - import_role:
     name: reboot
