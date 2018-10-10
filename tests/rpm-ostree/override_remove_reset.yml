@@ -25,11 +25,15 @@
         base-removals:
           {{ ros_booted['base-removals'] }}
 
+# Had to use include_role instead of import_role here because the variables
+# were not being overwritten properly (previous values were being used)
+# This might be https://github.com/ansible/ansible/issues/37787
 # verify the package has been removed by checking the rpm output
-- import_role:
+- include_role:
     name: rpm_ostree_uninstall_verify
   vars:
     rouv_package_name: '{{ g_remove_pkg }}'
+    rouv_binary_check: false
 
 # cleanup by resetting package
 - import_role:

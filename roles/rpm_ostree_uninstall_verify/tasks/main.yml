@@ -30,6 +30,7 @@
   set_fact:
     rouv_binary_name: "{{ rouv_binary_name if rouv_binary_name is defined else rouv_package_name }}"
     rouv_status_check: "{{ rouv_status_check | default(true) }}"
+    rouv_binary_check: "{{ rouv_binary_check | default(true) }}"
 
 - import_role:
     name: rpm_ostree_status
@@ -44,6 +45,7 @@
       Actual: Booted deployment packages: {{ ros_booted['packages'] }}
 
 - name: Fail if binary for {{ rouv_binary_name }} is installed
+  when: rouv_binary_check
   command: command -v {{ rouv_binary_name }}
   register: binary
   failed_when: binary.rc != 1
