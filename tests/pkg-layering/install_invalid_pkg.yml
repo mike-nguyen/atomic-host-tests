@@ -9,9 +9,11 @@
   failed_when: nonexist.rc != 1
 
 - name: Fail if error not expected
-  when: "'Packages not found' not in nonexist.stderr"
+  when:
+    - "'Packages not found' not in nonexist.stderr"
+    - "'No package matches' not in nonexist.stderr"
   fail:
     msg: |
-      Expected: No package is contained in the rpm-ostree install output
-                when attempting to install an invalid package
+      Expected: Error message is displayed with either "Package not found"
+                or "No package matches"
       Actual: {{ nonexist.stderr }}
