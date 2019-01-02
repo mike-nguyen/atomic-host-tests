@@ -2,7 +2,7 @@
 # vim: set ft=ansible:
 #
 - name: Enable livefs
-  command: rpm-ostree ex livefs
+  command: rpm-ostree ex livefs --i-like-danger
   register: ros_lfs
 
 # Regex to find all the sha256 checksums in the output
