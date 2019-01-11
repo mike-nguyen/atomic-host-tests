@@ -1,0 +1,5 @@
+---
+# vim: set ft=ansible:
+#
+- name: Reset all changes
+  command: rpm-ostree reset

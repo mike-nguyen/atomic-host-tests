@@ -84,31 +84,10 @@
       live-replaced: "{{ rol_livefs_commit }}"
 
 - import_role:
-    name: rpm_ostree_status_verify
-  vars:
-    deployment: 2
-    expected:
-      booted: false
-      checksum: "{{ rol_base_commit }}"
-      packages: []
+    name: rpm_ostree_reset
 
-# Rollback twice to get to the original deployment
-- import_role:
-    name: rpm_ostree_rollback
-
-- import_role:
-    name: rpm_ostree_rollback
-
-# Reboot and verify that the system is back to the original deployment
-# without livefs or layered packages
 - import_role:
     name: reboot
-
-- import_role:
-    name: rpm_ostree_uninstall_verify
-  vars:
-    rouv_package_name: "{{ g_pkg }}"
-    rouv_status_check: false
 
 - import_role:
     name: rpm_ostree_status_verify
@@ -125,19 +104,10 @@
     deployment: 1
     expected:
       booted: false
-      checksum: "{{ rol_base_commit }}"
-      live-replaced: "{{ rol_livefs_commit }}"
-
-- import_role:
-    name: rpm_ostree_status_verify
-  vars:
-    deployment: 2
-    expected:
-      booted: false
       base-checksum: "{{ rol_base_commit }}"
       checksum: "{{ rol_livefs_commit }}"
       packages:
-       - "{{ g_pkg }}"
+        - "{{ g_pkg }}"
 
 - import_role:
     name: rpm_ostree_cleanup_all
