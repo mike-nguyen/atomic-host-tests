@@ -3,10 +3,28 @@
 # set ft=ansible
 #
 
+# This is a bit of a hack.  Since cockpit/ws can be pulled both docker.io
+# and registry.centos.org, we remove docker.io from the search registries
+# to ensure it gets pulled from registry.centos.org by short name then add
+# it back in after the pull
+- name: Remove docker.io from registries.conf
+  when: ansible_distribution == "Fedora"
+  replace:
+    regexp: "'docker.io', "
+    replace: ""
+    dest: /etc/containers/registries.conf
+
 - import_role:
     name: atomic_pull
   vars:
     apl_image: "{{ cockpit_short_name }}"
+
+- name: Add docker.io back to registries.conf
+  when: ansible_distribution == "Fedora"
+  replace:
+    regexp: "\\[registries.search\\]\nregistries = \\["
+    replace: "[registries.search]\nregistries = ['docker.io', "
+    dest: /etc/containers/registries.conf
 
 - import_role:
     name: atomic_images_list_verify
