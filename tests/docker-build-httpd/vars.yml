@@ -20,7 +20,7 @@ image_names:
   - busybox_httpd
   - centos_httpd
   - debian_httpd
-  - fedora29_httpd
+  - fedora31_httpd
   - fedora30_httpd
   - nginx_httpd
   - ubuntu_httpd
